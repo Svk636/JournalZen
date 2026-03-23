@@ -578,15 +578,15 @@ body::after {
   stroke: var(--thought);
   stroke-width: 1;
   stroke-linecap: butt;
-  stroke-dasharray: 490;
-  stroke-dashoffset: 490;
+  stroke-dasharray: 490.09;
+  stroke-dashoffset: 490.09;
   transition: stroke-dashoffset 1s linear;
   opacity: 0.5;
 }
 
 .timer-display-wrap {
   position: relative;
-  margin-top: -155px;
+  margin-top: -127px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -600,8 +600,17 @@ body::after {
   letter-spacing: 0.04em;
   color: var(--ink);
   line-height: 1;
+  animation: timerBreath 4s ease-in-out infinite;
+  transition: color 0.4s;
 }
-.main-time.paused { color: var(--faint); }
+.main-time.paused {
+  color: var(--faint);
+  animation: none;
+}
+@keyframes timerBreath {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
 
 .step-time-small {
   font-family: var(--f-mono);
@@ -609,9 +618,11 @@ body::after {
   color: var(--thought);
   letter-spacing: 0.1em;
   margin-top: 8px;
-  min-height: 16px;
+  min-height: 18px;
   opacity: 0.8;
+  transition: opacity 0.3s;
 }
+.step-time-small:empty { opacity: 0; }
 
 .timer-controls {
   display: flex;
@@ -1278,7 +1289,7 @@ body::after {
         <circle class="ring-progress" id="ring-main" cx="100" cy="100" r="90"
           stroke-dasharray="565.5" stroke-dashoffset="0"/>
         <circle class="ring-track" cx="100" cy="100" r="78" opacity="0.5"/>
-        <circle class="ring-step-progress" id="ring-step" cx="100" cy="100" r="78"/>
+        <circle class="ring-step-progress" id="ring-step" cx="100" cy="100" r="78" stroke-dasharray="490.09" stroke-dashoffset="490.09"/>
       </svg>
       <div class="timer-display-wrap">
         <div class="main-time" id="main-time-display">02:00:00</div>
@@ -1291,7 +1302,7 @@ body::after {
       <button class="ctrl-btn abandon" onclick="showAbandon()">abandon</button>
     </div>
 
-    <div class="steps-section-label">Steps</div>
+    <div class="steps-section-label" id="steps-section-label">Steps</div>
     <div id="timer-steps-list"></div>
   </div>
 
@@ -1449,15 +1460,17 @@ function uid() {
 }
 
 function formatTime(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 
 function formatTimeMS(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const total = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
@@ -1580,7 +1593,7 @@ function renderHistory() {
         <span class="entry-sync-icon" title="${e._synced ? 'synced to cloud' : 'local only'}">${e._synced ? '☁' : '◌'}</span>
         <span class="entry-time">${relativeTime(e.createdAt)}</span>
       </div>
-      <div class="entry-text-preview">${e.text.slice(0, 80)}${e.text.length > 80 ? '…' : ''}</div>
+      <div class="entry-text-preview">${escapeHtml(e.text.slice(0, 80))}${e.text.length > 80 ? '…' : ''}</div>
     </div>
   `).join('');
 }
@@ -1693,7 +1706,11 @@ function beginIntention() {
   const h = parseInt(document.getElementById('dur-hours').value) || 0;
   const m = parseInt(document.getElementById('dur-mins').value) || 0;
   const totalSecs = (h * 3600) + (m * 60);
-  if (totalSecs < 60) { return; }
+  if (totalSecs < 60) {
+    const tot = document.getElementById('steps-total');
+    if (tot) { tot.textContent = 'Please set a duration of at least 1 minute'; tot.style.color = 'var(--danger)'; setTimeout(() => { tot.textContent = ''; tot.style.color = ''; updateStepsTotal(); }, 2500); }
+    return;
+  }
 
   // Collect steps from DOM (text may have been typed)
   document.querySelectorAll('.step-row').forEach(row => {
@@ -1729,6 +1746,7 @@ function beginIntention() {
     id: s.id,
     text: s.text || 'Step',
     duration: s.duration * 60,
+    remaining: s.duration * 60,  // tracks elapsed remaining (updated on stop)
     status: 'pending',
   }));
 
@@ -1756,16 +1774,20 @@ function renderTimerSteps() {
   const el = document.getElementById('timer-steps-list');
   if (!el) return;
   const steps = State.timerSteps || [];
+  const lbl = document.getElementById('steps-section-label');
   if (!steps.length) {
-    el.innerHTML = '<div style="font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:0.15em;padding:16px 0;">No microsteps defined</div>';
+    if (lbl) lbl.style.display = 'none';
+    el.innerHTML = '';
     return;
   }
+  if (lbl) lbl.style.display = '';
   el.innerHTML = steps.map(s => {
     const isActive = State.stepTimer.activeId === s.id;
     const statusClass = s.status === 'done' ? 'done-step' : s.status === 'skipped' ? 'skipped-step' : isActive ? 'active-step' : '';
-    const miniTime = isActive ? `<span class="step-mini-timer">${formatTimeMS(State.stepTimer.remaining)}</span>` : `<span class="step-mini-timer" style="color:var(--faint)">${formatTimeMS(s.duration)}</span>`;
+    const displayTime = (s.remaining !== undefined && s.remaining < s.duration) ? s.remaining : s.duration;
+    const miniTime = isActive ? `<span class="step-mini-timer">${formatTimeMS(State.stepTimer.remaining)}</span>` : `<span class="step-mini-timer" style="color:var(--faint)">${formatTimeMS(displayTime)}</span>`;
     const startDisabled = (s.status !== 'pending' && !isActive) ? 'disabled' : '';
-    const startLabel = isActive ? '▪ active' : '▷ start';
+    const startLabel = isActive ? '▪ stop' : '▷ start';
     const actions = (s.status === 'pending' || isActive) ? `
       <div class="step-action-btns">
         <button class="step-skip-btn" onclick="skipStep('${s.id}')">SKIP</button>
@@ -1791,12 +1813,21 @@ function startMainTimer() {
   State.timer.running = true;
   State.timer.interval = setInterval(() => {
     if (!State.timer.running) return;
+    if (State.timer.remaining <= 0) {
+      clearInterval(State.timer.interval);
+      State.timer.interval = null;
+      State.timer.running  = false;
+      onTimerComplete();
+      return;
+    }
     State.timer.remaining--;
-    document.getElementById('main-time-display').textContent = formatTime(State.timer.remaining);
+    const td = document.getElementById('main-time-display');
+    if (td) td.textContent = formatTime(State.timer.remaining);
     updateRingMain(State.timer.remaining, State.timer.total);
     if (State.timer.remaining <= 0) {
       clearInterval(State.timer.interval);
-      State.timer.running = false;
+      State.timer.interval = null;
+      State.timer.running  = false;
       onTimerComplete();
     }
   }, 1000);
@@ -1827,6 +1858,22 @@ function togglePause() {
 
 // ── Step Timer ──
 function startStepTimer(id) {
+  // If this step is already active — clicking again STOPS it (toggle off)
+  if (State.stepTimer.activeId === id) {
+    // Save how much time is left so mini-timer shows correct remaining time
+    const stoppingStep = (State.timerSteps || []).find(s => s.id === id);
+    if (stoppingStep) stoppingStep.remaining = State.stepTimer.remaining;
+    clearInterval(State.stepTimer.interval);
+    State.stepTimer.interval  = null;
+    State.stepTimer.activeId  = null;
+    State.stepTimer.running   = false;
+    const sm = document.getElementById('step-time-small');
+    if (sm) sm.textContent = '';
+    updateRingStep(0, 1);
+    renderTimerSteps();
+    return;
+  }
+
   // Clear any existing step timer first
   if (State.stepTimer.interval) {
     clearInterval(State.stepTimer.interval);
@@ -1835,30 +1882,44 @@ function startStepTimer(id) {
   State.stepTimer.running  = false;
   State.stepTimer.activeId = null;
 
-  const step = State.timerSteps.find(s => s.id === id);
+  const step = (State.timerSteps || []).find(s => s.id === id);
   if (!step || step.status !== 'pending') return;
-  // Cannot start step timer if main timer is not running
-  if (!State.timer.running) return;
+  // Step timer starts even if main is paused; interval guards against ticking
 
-  State.stepTimer.activeId = id;
-  State.stepTimer.remaining = step.duration;
-  State.stepTimer.total = step.duration;
-  State.stepTimer.running = true;
+  State.stepTimer.activeId  = id;
+  // Resume from saved remaining (if step was previously stopped mid-way)
+  State.stepTimer.remaining = (step.remaining !== undefined && step.remaining < step.duration)
+    ? step.remaining : step.duration;
+  State.stepTimer.total     = step.duration;
+  State.stepTimer.running   = true;
 
   renderTimerSteps();
-  updateRingStep(step.duration, step.duration);
+  updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
 
   State.stepTimer.interval = setInterval(() => {
     if (!State.stepTimer.running || !State.timer.running) return;
+    // Guard: fire completion before decrement to avoid -1
+    if (State.stepTimer.remaining <= 0) {
+      clearInterval(State.stepTimer.interval);
+      State.stepTimer.interval = null;
+      State.stepTimer.running  = false;
+      synthesizeBell(0.3);
+      doneStep(id);
+      return;
+    }
     State.stepTimer.remaining--;
-    // Update mini timer display in row
+    // Keep step object in sync with live remaining
+    const activeStep = (State.timerSteps || []).find(s => s.id === id);
+    if (activeStep) activeStep.remaining = State.stepTimer.remaining;
     const miniEl = document.querySelector(`#tsr-${id} .step-mini-timer`);
     if (miniEl) miniEl.textContent = formatTimeMS(State.stepTimer.remaining);
-    document.getElementById('step-time-small').textContent = formatTimeMS(State.stepTimer.remaining);
+    const stSmall = document.getElementById('step-time-small');
+    if (stSmall) stSmall.textContent = formatTimeMS(State.stepTimer.remaining);
     updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
     if (State.stepTimer.remaining <= 0) {
       clearInterval(State.stepTimer.interval);
-      State.stepTimer.running = false;
+      State.stepTimer.interval = null;
+      State.stepTimer.running  = false;
       synthesizeBell(0.3);
       doneStep(id);
     }
@@ -1869,6 +1930,7 @@ function skipStep(id) {
   const step = (State.timerSteps || []).find(s => s.id === id);
   if (!step || step.status !== 'pending') return;
   step.status = 'skipped';
+  step.remaining = 0;
   if (State.stepTimer.activeId === id) {
     clearInterval(State.stepTimer.interval);
     State.stepTimer.interval  = null;
@@ -1888,6 +1950,7 @@ function doneStep(id) {
   const step = (State.timerSteps || []).find(s => s.id === id);
   if (!step) return;
   step.status = 'done';
+  step.remaining = 0;
   if (State.stepTimer.activeId === id) {
     clearInterval(State.stepTimer.interval);
     State.stepTimer.interval  = null;
@@ -1984,12 +2047,16 @@ function onTimerComplete() {
   document.getElementById('completion-duration-label').textContent =
     `${mins} minute session completed`;
 
-  // Mark entry
-  State.currentEntry.completedAt = new Date().toISOString();
-  State.currentEntry.updatedAt   = new Date().toISOString();
-  saveEntries();
-  SB.enqueue(State.currentEntry);
+  // Mark entry — guard against race with abandon
+  if (State.currentEntry) {
+    State.currentEntry.completedAt = new Date().toISOString();
+    State.currentEntry.updatedAt   = new Date().toISOString();
+    saveEntries();
+    SB.enqueue(State.currentEntry);
+  }
 
+  const mainTimeEl = document.getElementById('main-time-display');
+  if (mainTimeEl) { mainTimeEl.classList.add('paused'); mainTimeEl.textContent = '00:00:00'; }
   document.getElementById('completion-overlay').classList.add('show');
 }
 
@@ -2010,7 +2077,8 @@ function reflectAndReturn() {
   updateRingStep(0, 1);
   document.querySelector('.ring-svg')?.classList.remove('paused');
   // Pre-fill reflection
-  entryTA.value = `Reflection on: "${State.currentEntry.text.slice(0,60)}…"\n\n`;
+  const _rText = State.currentEntry ? State.currentEntry.text : '';
+  entryTA.value = _rText ? `Reflection on: "${_rText.slice(0,60)}…"\n\n` : '';
   entryTA.style.height = 'auto';
   entryTA.style.height = entryTA.scrollHeight + 'px';
   typeToggle.classList.add('visible');
