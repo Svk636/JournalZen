@@ -1712,14 +1712,18 @@ function beginIntention() {
   saveEntries();
   SB.enqueue(State.currentEntry);
 
-  // Init timer state
-  State.timer.total = totalSecs;
-  State.timer.remaining = totalSecs;
-  State.timer.running = false;
+  // Init timer state — full reset so 2nd+ runs are clean
   clearInterval(State.timer.interval);
   clearInterval(State.stepTimer.interval);
-  State.stepTimer.activeId = null;
+  State.timer.total     = totalSecs;
+  State.timer.remaining = totalSecs;
+  State.timer.running   = false;
+  State.timer.interval  = null;
+  State.stepTimer.activeId  = null;
   State.stepTimer.remaining = 0;
+  State.stepTimer.total     = 0;
+  State.stepTimer.running   = false;
+  State.stepTimer.interval  = null;
 
   State.timerSteps = State.steps.map(s => ({
     id: s.id,
@@ -1737,6 +1741,7 @@ function beginIntention() {
 //  SCREEN 3 — TIMER
 // ═══════════════════════════════════════════════════════
 function renderTimerScreen() {
+  if (!State.currentEntry) return;   // guard: no entry set yet
   document.getElementById('timer-intention-text').textContent = State.currentEntry.text;
   document.getElementById('main-time-display').textContent = formatTime(State.timer.remaining);
   document.getElementById('step-time-small').textContent = '';
@@ -1749,11 +1754,13 @@ function renderTimerScreen() {
 
 function renderTimerSteps() {
   const el = document.getElementById('timer-steps-list');
-  if (!State.timerSteps.length) {
+  if (!el) return;
+  const steps = State.timerSteps || [];
+  if (!steps.length) {
     el.innerHTML = '<div style="font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:0.15em;padding:16px 0;">No microsteps defined</div>';
     return;
   }
-  el.innerHTML = State.timerSteps.map(s => {
+  el.innerHTML = steps.map(s => {
     const isActive = State.stepTimer.activeId === s.id;
     const statusClass = s.status === 'done' ? 'done-step' : s.status === 'skipped' ? 'skipped-step' : isActive ? 'active-step' : '';
     const miniTime = isActive ? `<span class="step-mini-timer">${formatTimeMS(State.stepTimer.remaining)}</span>` : `<span class="step-mini-timer" style="color:var(--faint)">${formatTimeMS(s.duration)}</span>`;
@@ -1776,6 +1783,11 @@ function renderTimerSteps() {
 
 // ── Main Timer ──
 function startMainTimer() {
+  // Guard: clear any stale interval before starting
+  if (State.timer.interval) {
+    clearInterval(State.timer.interval);
+    State.timer.interval = null;
+  }
   State.timer.running = true;
   State.timer.interval = setInterval(() => {
     if (!State.timer.running) return;
@@ -1791,32 +1803,42 @@ function startMainTimer() {
 }
 
 function togglePause() {
+  // Only allow pause/resume if timer has been started
+  if (!State.timer.interval) return;
   State.timer.running = !State.timer.running;
-  const btn = document.getElementById('pause-btn');
+  const btn  = document.getElementById('pause-btn');
   const disp = document.getElementById('main-time-display');
   const ring = document.querySelector('.ring-svg');
   if (State.timer.running) {
     btn.textContent = 'pause';
     disp.classList.remove('paused');
     ring?.classList.remove('paused');
-    if (State.stepTimer.activeId) State.stepTimer.running = true;
+    // Resume step timer only if one was active
+    if (State.stepTimer.activeId && State.stepTimer.interval) {
+      State.stepTimer.running = true;
+    }
   } else {
     btn.textContent = 'resume';
     disp.classList.add('paused');
     ring?.classList.add('paused');
-    if (State.stepTimer.activeId) State.stepTimer.running = false;
+    State.stepTimer.running = false;
   }
 }
 
 // ── Step Timer ──
 function startStepTimer(id) {
-  // Clear existing step timer
-  clearInterval(State.stepTimer.interval);
-  State.stepTimer.running = false;
+  // Clear any existing step timer first
+  if (State.stepTimer.interval) {
+    clearInterval(State.stepTimer.interval);
+    State.stepTimer.interval = null;
+  }
+  State.stepTimer.running  = false;
   State.stepTimer.activeId = null;
 
   const step = State.timerSteps.find(s => s.id === id);
   if (!step || step.status !== 'pending') return;
+  // Cannot start step timer if main timer is not running
+  if (!State.timer.running) return;
 
   State.stepTimer.activeId = id;
   State.stepTimer.remaining = step.duration;
@@ -1844,15 +1866,18 @@ function startStepTimer(id) {
 }
 
 function skipStep(id) {
-  const step = State.timerSteps.find(s => s.id === id);
-  if (!step) return;
+  const step = (State.timerSteps || []).find(s => s.id === id);
+  if (!step || step.status !== 'pending') return;
   step.status = 'skipped';
   if (State.stepTimer.activeId === id) {
     clearInterval(State.stepTimer.interval);
-    State.stepTimer.activeId = null;
+    State.stepTimer.interval  = null;
+    State.stepTimer.activeId  = null;
     State.stepTimer.remaining = 0;
-    State.stepTimer.running = false;
-    document.getElementById('step-time-small').textContent = '';
+    State.stepTimer.total     = 0;
+    State.stepTimer.running   = false;
+    const small = document.getElementById('step-time-small');
+    if (small) small.textContent = '';
     updateRingStep(0, 1);
   }
   renderTimerSteps();
@@ -1860,15 +1885,18 @@ function skipStep(id) {
 }
 
 function doneStep(id) {
-  const step = State.timerSteps.find(s => s.id === id);
+  const step = (State.timerSteps || []).find(s => s.id === id);
   if (!step) return;
   step.status = 'done';
   if (State.stepTimer.activeId === id) {
     clearInterval(State.stepTimer.interval);
-    State.stepTimer.activeId = null;
+    State.stepTimer.interval  = null;
+    State.stepTimer.activeId  = null;
     State.stepTimer.remaining = 0;
-    State.stepTimer.running = false;
-    document.getElementById('step-time-small').textContent = '';
+    State.stepTimer.total     = 0;
+    State.stepTimer.running   = false;
+    const small = document.getElementById('step-time-small');
+    if (small) small.textContent = '';
     updateRingStep(0, 1);
   }
   renderTimerSteps();
@@ -1877,27 +1905,38 @@ function doneStep(id) {
 
 // ── Ring updates ──
 function updateRingMain(remaining, total) {
+  const el = document.getElementById('ring-main');
+  if (!el) return;
   const circ = 565.5;
   const frac = total > 0 ? remaining / total : 0;
-  const offset = circ * (1 - frac);
-  document.getElementById('ring-main').style.strokeDashoffset = offset;
+  el.style.strokeDashoffset = circ * (1 - frac);
 }
 
 function updateRingStep(remaining, total) {
-  const circ = 628; // 2π × 100 (r=100 in SVG, but r=78 → 2π×78 ≈ 490)
-  // Actually r=78 → circumference = 2π×78 ≈ 490.09
-  const actualCirc = 2 * Math.PI * 78;
+  const el = document.getElementById('ring-step');
+  if (!el) return;
+  const circ = 2 * Math.PI * 78;   // r=78 → circumference ≈ 490.09
   const frac = total > 0 ? remaining / total : 0;
-  const offset = actualCirc * (1 - frac);
-  document.getElementById('ring-step').style.strokeDasharray = actualCirc;
-  document.getElementById('ring-step').style.strokeDashoffset = offset;
+  el.style.strokeDasharray  = circ;
+  el.style.strokeDashoffset = circ * (1 - frac);
 }
 
 // ── Bell sound ──
+// Shared AudioContext — reuse to avoid mobile suspension issues
+let _audioCtx = null;
+function _getAudioCtx() {
+  if (!_audioCtx || _audioCtx.state === 'closed') {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // Resume if suspended (required after page visibility change on mobile)
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
 function synthesizeBell(volume = 0.5) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
+    const ctx  = _getAudioCtx();
+    const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -1907,18 +1946,35 @@ function synthesizeBell(volume = 0.5) {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 3);
-  } catch(e) {}
+  } catch(e) { console.warn('Bell error:', e); }
 }
+
+// Unlock AudioContext on first user interaction (required on iOS/Chrome)
+function _unlockAudio() {
+  try { _getAudioCtx(); } catch(e) {}
+  document.removeEventListener('touchstart', _unlockAudio);
+  document.removeEventListener('click',      _unlockAudio);
+}
+document.addEventListener('touchstart', _unlockAudio, { once: true });
+document.addEventListener('click',      _unlockAudio, { once: true });
 
 // ── Completion ──
 function onTimerComplete() {
-  synthesizeBell(0.6);
+  // Guard: prevent double-fire
+  clearInterval(State.timer.interval);
+  State.timer.interval = null;
   clearInterval(State.stepTimer.interval);
-  State.stepTimer.running = false;
+  State.stepTimer.interval = null;
+  State.timer.running      = false;
+  State.stepTimer.running  = false;
+  State.stepTimer.activeId = null;
 
-  const done    = State.timerSteps.filter(s => s.status === 'done').length;
-  const skipped = State.timerSteps.filter(s => s.status === 'skipped').length;
-  const pending = State.timerSteps.filter(s => s.status === 'pending').length;
+  synthesizeBell(0.6);
+
+  const steps   = State.timerSteps || [];
+  const done    = steps.filter(s => s.status === 'done').length;
+  const skipped = steps.filter(s => s.status === 'skipped').length;
+  const pending = steps.filter(s => s.status === 'pending').length;
 
   document.getElementById('stat-done').textContent    = done;
   document.getElementById('stat-skipped').textContent = skipped;
@@ -1941,6 +1997,18 @@ function reflectAndReturn() {
   document.getElementById('completion-overlay').classList.remove('show');
   clearInterval(State.timer.interval);
   clearInterval(State.stepTimer.interval);
+  State.timer.interval      = null;
+  State.stepTimer.interval  = null;
+  State.timer.running       = false;
+  State.stepTimer.running   = false;
+  State.stepTimer.activeId  = null;
+  State.stepTimer.remaining = 0;
+  State.stepTimer.total     = 0;
+  State.timerSteps          = [];
+  document.getElementById('step-time-small').textContent = '';
+  updateRingMain(0, 1);
+  updateRingStep(0, 1);
+  document.querySelector('.ring-svg')?.classList.remove('paused');
   // Pre-fill reflection
   entryTA.value = `Reflection on: "${State.currentEntry.text.slice(0,60)}…"\n\n`;
   entryTA.style.height = 'auto';
@@ -1955,7 +2023,7 @@ function reflectAndReturn() {
 
 // Persist step status changes to localStorage + cloud
 function _syncStepStatus() {
-  if (!State.currentEntry) return;
+  if (!State.currentEntry || !State.timerSteps) return;
   State.currentEntry.microsteps = State.timerSteps.map(s => ({
     id: s.id, text: s.text,
     duration: Math.round(s.duration / 60),
@@ -1976,10 +2044,19 @@ function hideAbandon() {
 function confirmAbandon() {
   clearInterval(State.timer.interval);
   clearInterval(State.stepTimer.interval);
-  State.timer.running = false;
-  State.stepTimer.running = false;
-  State.stepTimer.activeId = null;
+  State.timer.running       = false;
+  State.timer.interval      = null;
+  State.stepTimer.running   = false;
+  State.stepTimer.interval  = null;
+  State.stepTimer.activeId  = null;
+  State.stepTimer.remaining = 0;
+  State.stepTimer.total     = 0;
+  State.timerSteps          = [];
+  State.currentEntry        = null;
   document.getElementById('abandon-confirm').classList.remove('show');
+  document.getElementById('step-time-small').textContent = '';
+  updateRingMain(0, 1);
+  updateRingStep(0, 1);
   document.querySelector('.ring-svg')?.classList.remove('paused');
   resetJournalForm();
   navigate('journal');
