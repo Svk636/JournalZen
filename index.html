@@ -1391,6 +1391,7 @@ body::after {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; transition: color 0.2s; line-height: 1;
   -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
 }
 .pwa-dismiss-btn:hover { color: var(--muted); }
 
@@ -3701,6 +3702,8 @@ function pwaBannerDismiss() {
   const banner = document.getElementById('pwa-banner');
   if (!banner) return;
   banner.classList.remove('show');
+  // Explicitly kill pointer-events during the slide-out transition
+  banner.style.pointerEvents = 'none';
 }
 
 // ── Background Sync registration ──
@@ -3938,22 +3941,22 @@ function tplClearActiveForm() {
     <!-- LEFT LIST -->
     <div class="tpl-list" id="tpl-list">
       <div class="tpl-list-section">Daily</div>
-      <div role="button" tabindex="0" class="tpl-list-item active" onclick="showTpl('t01')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t01\')" data-tpl="t01"><span class="tpl-list-icon">🌅</span><span class="tpl-list-label">Morning Open</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t02')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t02\')" data-tpl="t02"><span class="tpl-list-icon">🌑</span><span class="tpl-list-label">Night Close</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t03')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t03\')" data-tpl="t03"><span class="tpl-list-icon">🧘</span><span class="tpl-list-label">Aanapanasati</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item active" onclick="showTpl('t01')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t01')" data-tpl="t01"><span class="tpl-list-icon">🌅</span><span class="tpl-list-label">Morning Open</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t02')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t02')" data-tpl="t02"><span class="tpl-list-icon">🌑</span><span class="tpl-list-label">Night Close</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t03')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t03')" data-tpl="t03"><span class="tpl-list-icon">🧘</span><span class="tpl-list-label">Aanapanasati</span></div>
       <div class="tpl-list-section">Foundation</div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t04')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t04\')" data-tpl="t04"><span class="tpl-list-icon">🔭</span><span class="tpl-list-label">90-Day Vision</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t06')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t06\')" data-tpl="t06"><span class="tpl-list-icon">⚔️</span><span class="tpl-list-label">Identity Arch.</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t04')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t04')" data-tpl="t04"><span class="tpl-list-icon">🔭</span><span class="tpl-list-label">90-Day Vision</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t06')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t06')" data-tpl="t06"><span class="tpl-list-icon">⚔️</span><span class="tpl-list-label">Identity Arch.</span></div>
       <div class="tpl-list-section">Craft</div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t05')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t05\')" data-tpl="t05"><span class="tpl-list-icon">🎭</span><span class="tpl-list-label">Scene Breakdown</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t09')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t09\')" data-tpl="t09"><span class="tpl-list-icon">🎬</span><span class="tpl-list-label">Craft Session</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t05')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t05')" data-tpl="t05"><span class="tpl-list-icon">🎭</span><span class="tpl-list-label">Scene Breakdown</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t09')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t09')" data-tpl="t09"><span class="tpl-list-icon">🎬</span><span class="tpl-list-label">Craft Session</span></div>
       <div class="tpl-list-section">Resilience</div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t07')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t07\')" data-tpl="t07"><span class="tpl-list-icon">🔥</span><span class="tpl-list-label">Rejection Protocol</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t11')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t11\')" data-tpl="t11"><span class="tpl-list-icon">⚡</span><span class="tpl-list-label">Breakthrough Log</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t07')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t07')" data-tpl="t07"><span class="tpl-list-icon">🔥</span><span class="tpl-list-label">Rejection Protocol</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t11')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t11')" data-tpl="t11"><span class="tpl-list-icon">⚡</span><span class="tpl-list-label">Breakthrough Log</span></div>
       <div class="tpl-list-section">Review</div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t08')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t08\')" data-tpl="t08"><span class="tpl-list-icon">📊</span><span class="tpl-list-label">Weekly Review</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t10')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t10\')" data-tpl="t10"><span class="tpl-list-icon">💡</span><span class="tpl-list-label">Meditation Insight</span></div>
-      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t12')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t12\')" data-tpl="t12"><span class="tpl-list-icon">📅</span><span class="tpl-list-label">Monthly Verdict</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t08')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t08')" data-tpl="t08"><span class="tpl-list-icon">📊</span><span class="tpl-list-label">Weekly Review</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t10')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t10')" data-tpl="t10"><span class="tpl-list-icon">💡</span><span class="tpl-list-label">Meditation Insight</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t12')" onkeydown="if(event.key==='Enter'||event.key===' ')showTpl('t12')" data-tpl="t12"><span class="tpl-list-icon">📅</span><span class="tpl-list-label">Monthly Verdict</span></div>
     </div>
 
     <!-- RIGHT FORMS -->
