@@ -40,7 +40,6 @@
   --border2:     rgba(26,24,20,0.06);
   --overlay:     rgba(247,245,240,0.97);
 
-  --f-display:  'Cinzel', serif;
   --f-body:     'Crimson Pro', Georgia, serif;
   --f-script:   'Petit Formal Script', cursive;
   --f-mono:     'DM Mono', monospace;
@@ -62,7 +61,7 @@ body::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 9998;
+  z-index: 100;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
 }
 
@@ -729,7 +728,7 @@ body::after {
   position: fixed; inset: 0;
   background: var(--overlay);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  z-index: 100; opacity: 0; pointer-events: none;
+  z-index: 150; opacity: 0; pointer-events: none;
   transition: opacity 0.8s; text-align: center; padding: max(40px, env(safe-area-inset-top)) 40px max(40px, env(safe-area-inset-bottom));
 }
 #completion-overlay.show { opacity: 1; pointer-events: all; }
@@ -1011,6 +1010,328 @@ body::after {
   .ring-svg { width: 170px; height: 170px; }
   .timer-display-wrap { margin-top: -115px; }
 }
+
+/* ══════════════════════════════════════════
+   DOJO OS TEMPLATES OVERLAY
+══════════════════════════════════════════ */
+
+#templates-panel {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 450;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.35s;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#templates-panel.show { opacity: 1; pointer-events: all; }
+
+/* Header bar */
+.tpl-header {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px max(28px, env(safe-area-inset-left)) 16px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg);
+}
+.tpl-header-left { display: flex; flex-direction: column; gap: 2px; }
+.tpl-title {
+  font-family: var(--f-script);
+  font-size: 22px;
+  color: var(--ink2);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.tpl-subtitle {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+.tpl-close-btn {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0 0 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tpl-close-btn:hover { color: var(--muted); border-bottom-color: var(--faint); }
+
+/* Two-pane layout */
+.tpl-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* LEFT: template picker */
+.tpl-list {
+  flex-shrink: 0;
+  width: 220px;
+  border-right: 1px solid var(--border2);
+  overflow-y: auto;
+  padding: 16px 0;
+}
+
+@media (max-width: 600px) {
+  .tpl-list { width: 54px; }
+  .tpl-list-label { display: none; }
+  .tpl-list-item-label { display: none; }
+}
+
+.tpl-list-section {
+  font-family: var(--f-mono);
+  font-size: 7px;
+  letter-spacing: 0.3em;
+  color: var(--faint);
+  text-transform: uppercase;
+  padding: 12px 16px 6px;
+}
+
+.tpl-list-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 2px solid transparent;
+}
+.tpl-list-item:hover { background: rgba(26,24,20,0.04); }
+.tpl-list-item.active {
+  border-left-color: var(--intention);
+  background: rgba(61,107,94,0.06);
+}
+.tpl-list-icon { font-size: 16px; flex-shrink: 0; line-height: 1; }
+.tpl-list-label {
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.tpl-list-item.active .tpl-list-label { color: var(--intention); }
+
+/* RIGHT: form area */
+.tpl-form-wrap {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tpl-form {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  padding: 28px max(32px, calc(20px + env(safe-area-inset-right))) 120px max(32px, env(safe-area-inset-left));
+  animation: fadeIn 0.3s ease both;
+}
+.tpl-form.active { display: flex; }
+
+.tpl-form-header {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border2);
+}
+.tpl-form-icon { font-size: 24px; margin-bottom: 8px; }
+.tpl-form-num {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.tpl-form-title {
+  font-family: var(--f-body);
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 300;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.tpl-form-desc {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+}
+
+/* Field rows */
+.tpl-field {
+  margin-bottom: 24px;
+}
+.tpl-field-label {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+.tpl-field-hint {
+  font-family: var(--f-body);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--faint);
+  display: block;
+  margin-bottom: 6px;
+}
+.tpl-field-input, .tpl-field-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  font-weight: 300;
+  line-height: 1.65;
+  padding: 6px 0 8px;
+  outline: none;
+  resize: none;
+  caret-color: var(--intention);
+  transition: border-color 0.3s;
+}
+.tpl-field-input:focus, .tpl-field-textarea:focus { border-bottom-color: var(--intention); }
+.tpl-field-input::placeholder, .tpl-field-textarea::placeholder {
+  color: var(--faint); font-style: italic; font-weight: 200;
+}
+.tpl-field-textarea { min-height: 70px; }
+.tpl-field-textarea.tall { min-height: 120px; }
+
+/* Score row */
+.tpl-score-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tpl-score-btn {
+  width: 34px; height: 34px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--faint);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.tpl-score-btn:hover, .tpl-score-btn.active {
+  background: rgba(61,107,94,0.08);
+  border-color: var(--intention);
+  color: var(--intention);
+}
+
+/* Pill checks */
+.tpl-pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tpl-pill {
+  padding: 5px 14px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tpl-pill:hover, .tpl-pill.active {
+  background: rgba(61,107,94,0.08);
+  border-color: var(--intention);
+  color: var(--intention);
+}
+
+/* Section divider inside form */
+.tpl-section-label {
+  font-family: var(--f-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.3em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin: 24px 0 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.tpl-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border2); }
+
+/* Rasa pills */
+.tpl-rasa-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tpl-rasa-pill {
+  padding: 5px 12px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 100px;
+}
+.tpl-rasa-pill:hover, .tpl-rasa-pill.active {
+  background: rgba(122,104,72,0.08);
+  border-color: var(--thought);
+  color: var(--thought);
+}
+
+/* Footer bar with capture */
+.tpl-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border2);
+  padding: 14px max(32px, env(safe-area-inset-right)) max(20px, calc(14px + env(safe-area-inset-bottom))) max(32px, env(safe-area-inset-left));
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+.tpl-entry-type-row { display: flex; gap: 8px; }
+.tpl-type-btn {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tpl-type-btn:hover { border-color: var(--muted); color: var(--ink); }
+.tpl-type-btn.sel-thought  { border-color: var(--thought);   color: var(--thought);   background: rgba(122,104,72,0.06); }
+.tpl-type-btn.sel-intention{ border-color: var(--intention); color: var(--intention); background: rgba(61,107,94,0.06); }
+
+.tpl-capture-btn {
+  font-family: var(--f-body);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--bg);
+  background: var(--intention);
+  border: none;
+  padding: 10px 28px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.tpl-capture-btn:hover { opacity: 0.88; }
+.tpl-capture-btn:disabled { opacity: 0.3; cursor: default; }
+
+.tpl-flash {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  color: var(--intention);
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.tpl-flash.show { opacity: 1; }
 
 /* ── Print ── */
 @media print {
@@ -1310,7 +1631,7 @@ body::after {
 </div><!-- #app -->
 
 <!-- AUTH SCREEN -->
-<div id="auth-screen">
+<div id="auth-screen" class="hidden">
   <div class="auth-brand">Zen Journal</div>
 
   <div class="auth-tabs">
@@ -1477,7 +1798,11 @@ function formatTimeMS(seconds) {
 }
 
 function relativeTime(iso) {
-  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (!iso) return '';
+  const ts = new Date(iso).getTime();
+  if (isNaN(ts)) return '';
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 0) return 'just now';   // future timestamp (clock skew / bad import)
   if (diff < 60) return 'just now';
   if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
@@ -1490,7 +1815,12 @@ function saveEntries() {
       State.entries = State.entries.slice(-90);
     }
     localStorage.setItem('zj_entries', JSON.stringify(State.entries));
-  } catch(e) {}
+  } catch(e) {
+    // Surface storage quota errors so the user knows their data wasn't saved
+    if (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)) {
+      flash('⚠ Storage full — export your entries');
+    }
+  }
 }
 
 function loadEntries() {
@@ -1535,7 +1865,7 @@ function selectType(type) {
   State.selectedType = type;
   document.getElementById('btn-thought').className = 'type-btn' + (type === 'thought' ? ' selected-thought' : '');
   document.getElementById('btn-intention').className = 'type-btn' + (type === 'intention' ? ' selected-intention' : '');
-  captureBtn.classList.add('visible');
+  if (entryTA.value.trim().length > 0) captureBtn.classList.add('visible');
 }
 
 function captureEntry() {
@@ -1594,7 +1924,7 @@ function renderHistory() {
   el.innerHTML = recent.map(e => `
     <div class="entry-card">
       <div class="entry-card-header">
-        <span class="entry-badge ${e.type === 'thought' ? 'badge-thought' : 'badge-intention'}">${e.type}</span>
+        <span class="entry-badge ${e.type === 'thought' ? 'badge-thought' : e.type === 'intention' ? 'badge-intention' : ''}">${escapeHtml(String(e.type || ''))}</span>
         <span class="entry-sync-icon" title="${e._synced ? 'synced to cloud' : 'local only'}">${e._synced ? '☁' : '◌'}</span>
         <span class="entry-time">${relativeTime(e.createdAt)}</span>
       </div>
@@ -1668,7 +1998,7 @@ function updateStepText(id, val) {
 
 function updateStepDur(id, val) {
   const s = State.steps.find(x => x.id === id);
-  if (s) s.duration = parseInt(val) || 10;
+  if (s) s.duration = Math.max(1, parseInt(val) || 10);
   updateStepsTotal();
 }
 
@@ -1697,9 +2027,11 @@ function dragEnd(e) { e.currentTarget.classList.remove('dragging'); dragSrcId = 
 function dragDrop(e, targetId) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
+  if (!dragSrcId) return;            // no drag in progress (e.g. browser extension drop)
   if (dragSrcId === targetId) return;
   const srcIdx = State.steps.findIndex(s => s.id === dragSrcId);
   const tgtIdx = State.steps.findIndex(s => s.id === targetId);
+  if (srcIdx === -1 || tgtIdx === -1) return;  // stale IDs after a re-render
   const [moved] = State.steps.splice(srcIdx, 1);
   State.steps.splice(tgtIdx, 0, moved);
   renderStepsList();
@@ -1707,7 +2039,7 @@ function dragDrop(e, targetId) {
 }
 
 function escapeHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function beginIntention() {
@@ -1726,7 +2058,7 @@ function beginIntention() {
     const s = State.steps.find(x => x.id === id);
     if (s) {
       s.text = row.querySelector('.step-text-input').value;
-      s.duration = parseInt(row.querySelector('.step-dur-input').value) || 10;
+      s.duration = Math.max(1, parseInt(row.querySelector('.step-dur-input').value) || 10);
     }
   });
 
@@ -1842,8 +2174,8 @@ function startMainTimer() {
 }
 
 function togglePause() {
-  // Only allow pause/resume if timer is active
-  if (!State.timer.interval && !State.timer.running) return;
+  // Only allow pause/resume if a session has been started
+  if (!State.timer.total || State.timer.remaining <= 0) return;
   State.timer.running = !State.timer.running;
   const btn  = document.getElementById('pause-btn');
   const disp = document.getElementById('main-time-display');
@@ -1856,6 +2188,7 @@ function togglePause() {
     // Resume step timer if one was active (interval still running, just re-enable flag)
     if (State.stepTimer.activeId && State.stepTimer.interval) {
       State.stepTimer.running = true;
+      _stepTimerLastTick = Date.now();  // reset step timer anchor too
     }
   } else {
     if (btn) btn.textContent = 'resume';
@@ -1866,6 +2199,8 @@ function togglePause() {
 }
 
 // ── Step Timer ──
+let _stepTimerLastTick = 0;  // wall-clock anchor for step timer drift correction
+
 function startStepTimer(id) {
   // If this step is already active — clicking again STOPS it (toggle off)
   if (State.stepTimer.activeId === id) {
@@ -1904,19 +2239,15 @@ function startStepTimer(id) {
 
   renderTimerSteps();
   updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
+  _stepTimerLastTick = Date.now();  // wall-clock anchor
 
   State.stepTimer.interval = setInterval(() => {
     if (!State.stepTimer.running || !State.timer.running) return;
-    // Guard: fire completion before decrement to avoid -1
-    if (State.stepTimer.remaining <= 0) {
-      clearInterval(State.stepTimer.interval);
-      State.stepTimer.interval = null;
-      State.stepTimer.running  = false;
-      synthesizeBell(0.3);
-      doneStep(id);
-      return;
-    }
-    State.stepTimer.remaining--;
+    // Wall-clock drift correction: use actual elapsed time, not tick count
+    const now          = Date.now();
+    const elapsed      = Math.round((now - _stepTimerLastTick) / 1000);
+    _stepTimerLastTick = now;
+    State.stepTimer.remaining = Math.max(0, State.stepTimer.remaining - elapsed);
     // Keep step object in sync with live remaining
     const activeStep = (State.timerSteps || []).find(s => s.id === id);
     if (activeStep) activeStep.remaining = State.stepTimer.remaining;
@@ -1929,8 +2260,22 @@ function startStepTimer(id) {
       clearInterval(State.stepTimer.interval);
       State.stepTimer.interval = null;
       State.stepTimer.running  = false;
-      synthesizeBell(0.3);
-      doneStep(id);
+      // Only auto-complete if the step is still pending — it may have been
+      // manually skipped while the interval was still counting down
+      const completingStep = (State.timerSteps || []).find(s => s.id === id);
+      if (completingStep && completingStep.status === 'pending') {
+        synthesizeBell(0.3);
+        doneStep(id);
+      } else {
+        // Step was skipped mid-countdown — clean up timer UI without marking done
+        State.stepTimer.activeId  = null;
+        State.stepTimer.remaining = 0;
+        State.stepTimer.total     = 0;
+        const small = document.getElementById('step-time-small');
+        if (small) small.textContent = '';
+        updateRingStep(0, 1);
+        renderTimerSteps();
+      }
     }
   }, 1000);
 }
@@ -1957,7 +2302,7 @@ function skipStep(id) {
 
 function doneStep(id) {
   const step = (State.timerSteps || []).find(s => s.id === id);
-  if (!step) return;
+  if (!step || step.status === 'done' || step.status === 'skipped') return;
   step.status = 'done';
   step.remaining = 0;
   if (State.stepTimer.activeId === id) {
@@ -2088,6 +2433,7 @@ function reflectAndReturn() {
   entryTA.value = _rText ? `Reflection on: "${_rText.length > 60 ? _rText.slice(0,60) + '…' : _rText}"\n\n` : '';
   entryTA.style.height = 'auto';
   entryTA.style.height = entryTA.scrollHeight + 'px';
+  entryTA.dispatchEvent(new Event('input', { bubbles: true }));
   typeToggle.classList.add('visible');
   captureBtn.classList.remove('visible');
   State.selectedType = null;
@@ -2308,7 +2654,7 @@ const SB = {
     this.flush();
   },
 
-  async flush() {
+  async flush(_isRetry = false) {
     if (!this.ok || !this.user || this.syncing || !this.queue.length || !navigator.onLine) return;
     this.syncing = true;
     updateSyncUI('syncing');
@@ -2316,7 +2662,7 @@ const SB = {
     try {
       const rows = batch.map(q => ({
         id:         q.id,
-        user_id:    this.user.id,          // auth.uid() — real UUID from Supabase Auth
+        user_id:    this.user.id,
         data:       q.data,
         updated_at: new Date().toISOString()
       }));
@@ -2326,9 +2672,11 @@ const SB = {
         body:    JSON.stringify(rows)
       });
       if (res.status === 401) {
-        // Token expired — try refresh
-        const refreshed = await this.refreshSession();
-        if (refreshed) { this.syncing = false; this.flush(); return; }
+        // Token expired — try refresh exactly once; never recurse twice
+        if (!_isRetry) {
+          const refreshed = await this.refreshSession();
+          if (refreshed) { this.syncing = false; this.flush(true); return; }
+        }
         throw new Error('Session expired. Please sign in again.');
       }
       if (!res.ok) throw new Error(await res.text());
@@ -2519,6 +2867,7 @@ document.getElementById('rs-email')?.addEventListener('keydown', e => { if(e.key
 // ═══════════════════════════════════════════════════════
 function openSbPanel() {
   if (!SB.user) {
+    _setTabInactive();   // clear tab highlight before handing off to auth screen
     showAuthScreen();
     return;
   }
@@ -2526,7 +2875,7 @@ function openSbPanel() {
   document.getElementById('cfg-panel').classList.add('show');
 }
 
-function closeCfgPanel() { document.getElementById('cfg-panel').classList.remove('show'); }
+function closeCfgPanel() { document.getElementById('cfg-panel').classList.remove('show'); _setTabInactive(); }
 
 function saveCfgPanel() {
   closeCfgPanel();
@@ -2548,7 +2897,7 @@ async function doSignOut() {
 
 // -- Panel open/close --
 function openIoPanel()  { document.getElementById('io-panel').classList.add('show'); setIoStatus('',''); }
-function closeIoPanel() { document.getElementById('io-panel').classList.remove('show'); }
+function closeIoPanel() { document.getElementById('io-panel').classList.remove('show'); _setTabInactive(); }
 function setIoStatus(msg, type) {
   const el = document.getElementById('io-status');
   el.textContent = msg;
@@ -2557,7 +2906,13 @@ function setIoStatus(msg, type) {
 
 // -- Drag & drop helpers --
 function ioDragOver(e)  { e.preventDefault(); document.getElementById('io-drop-zone').classList.add('drag-over'); }
-function ioDragLeave(e) { document.getElementById('io-drop-zone').classList.remove('drag-over'); }
+function ioDragLeave(e) {
+  // Only remove highlight when the cursor genuinely leaves the drop zone boundary,
+  // not when it moves to a child element inside the zone (which triggers a spurious leave).
+  const zone = document.getElementById('io-drop-zone');
+  if (zone && zone.contains(e.relatedTarget)) return;
+  zone.classList.remove('drag-over');
+}
 function ioDrop(e) {
   e.preventDefault();
   document.getElementById('io-drop-zone').classList.remove('drag-over');
@@ -2574,7 +2929,10 @@ function ioFileSelected(e) {
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -2694,7 +3052,7 @@ function renderPDF() {
       y += 8;
 
       // Body text
-      doc.setFontSize(12); doc.setFont('helvetica','light'); sc(C.text);
+      doc.setFontSize(12); doc.setFont('helvetica','normal'); sc(C.text);
       doc.splitTextToSize(entry.text, TW).forEach(ln => { needPage(7); doc.text(ln, ML, y); y += 7; });
       y += 4;
 
@@ -2712,7 +3070,7 @@ function renderPDF() {
           doc.setFontSize(8); sc(scol);
           doc.text(sym, ML, y);
           sc(step.status==='done' ? C.muted : C.text);
-          doc.setFont('helvetica', step.status==='done' ? 'light' : 'normal');
+          doc.setFont('helvetica', step.status==='done' ? 'normal' : 'normal');
           const stepLines = doc.splitTextToSize(step.text || '(untitled)', TW-14);
           doc.text(stepLines[0], ML+10, y);
           sc(C.muted); doc.setFontSize(7);
@@ -2755,19 +3113,19 @@ function importFromJSON(text) {
   try { parsed = JSON.parse(text); } catch(e) { setIoStatus('Invalid JSON file', 'error'); return; }
   const incoming = Array.isArray(parsed) ? parsed : (parsed.entries || null);
   if (!incoming) { setIoStatus('JSON must contain an "entries" array', 'error'); return; }
-  const valid = incoming.filter(e => e && e.id && e.type && e.text && e.createdAt);
+  const VALID_TYPES = new Set(['thought', 'intention']);
+  const valid = incoming.filter(e => e && e.id && e.type && VALID_TYPES.has(e.type) && e.text && e.createdAt);
   if (!valid.length) { setIoStatus('No valid entries found in JSON', 'error'); return; }
   let added = 0, updated = 0;
   valid.forEach(remote => {
     const entry = { ...remote, updatedAt: remote.updatedAt||remote.createdAt, microsteps: remote.microsteps||[], _synced: false };
     const idx = State.entries.findIndex(e => e.id === remote.id);
-    if (idx === -1) { State.entries.push(entry); added++; }
+    if (idx === -1) { State.entries.push(entry); added++; SB.enqueue(entry); }
     else {
       const lt = new Date(State.entries[idx].updatedAt||State.entries[idx].createdAt||0).getTime();
       const rt = new Date(entry.updatedAt).getTime();
-      if (rt >= lt) { State.entries[idx] = entry; updated++; }
+      if (rt >= lt) { State.entries[idx] = entry; updated++; SB.enqueue(entry); }
     }
-    SB.enqueue(entry);
   });
   State.entries.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
   saveEntries(); renderHistory();
@@ -2786,11 +3144,12 @@ function importFromCSV(text) {
   const iId=hi('id'), iType=hi('type'), iText=hi('text'), iCat=hi('createdAt');
   const iUpd=hi('updatedAt'), iDur=hi('totalDuration'), iComp=hi('completedAt'), iSteps=hi('steps');
   if (iId===-1||iType===-1||iText===-1) { setIoStatus('CSV missing required columns: id, type, text','error'); return; }
+  const VALID_IMPORT_TYPES = new Set(['thought', 'intention']);
   let added=0, updated=0, skipped=0;
   for (let i=1; i<lines.length; i++) {
     const cols = parseCSVRow(lines[i]);
     const id=cols[iId]||'', type=cols[iType]||'', text=cols[iText]||'';
-    if (!id||!type||!text) { skipped++; continue; }
+    if (!id||!type||!text||!VALID_IMPORT_TYPES.has(type)) { skipped++; continue; }
     let microsteps=[];
     if (iSteps!==-1&&cols[iSteps]) try { microsteps=JSON.parse(cols[iSteps])||[]; } catch(e){}
     const entry = {
@@ -2802,13 +3161,12 @@ function importFromCSV(text) {
       microsteps, _synced: false
     };
     const existIdx = State.entries.findIndex(e=>e.id===id);
-    if (existIdx===-1) { State.entries.push(entry); added++; }
+    if (existIdx===-1) { State.entries.push(entry); added++; SB.enqueue(entry); }
     else {
       const lt=new Date(State.entries[existIdx].updatedAt||State.entries[existIdx].createdAt||0).getTime();
       const rt=new Date(entry.updatedAt).getTime();
-      if (rt>=lt) { State.entries[existIdx]=entry; updated++; }
+      if (rt>=lt) { State.entries[existIdx]=entry; updated++; SB.enqueue(entry); }
     }
-    SB.enqueue(entry);
   }
   State.entries.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
   saveEntries(); renderHistory();
@@ -2830,6 +3188,11 @@ function parseCSVRow(row) {
 }
 
 function processImportFile(file) {
+  const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+  if (file.size > MAX_BYTES) {
+    setIoStatus('File too large (max 5 MB). Please export a smaller set of entries.', 'error');
+    return;
+  }
   setIoStatus('Reading file...','info');
   const ext=file.name.split('.').pop().toLowerCase();
   const reader=new FileReader();
@@ -2850,10 +3213,52 @@ window.addEventListener('offline', () => updateSyncUI());
 setInterval(() => { if (SB.ok && SB.user && navigator.onLine) SB.flush(); }, 60000);
 
 // ── Visibility change — correct timer drift after tab hidden / phone locked ──
+let _hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    // Reset wall-clock anchor so the next interval tick doesn't over-subtract
-    _timerLastTick = Date.now();
+  if (document.visibilityState === 'hidden') {
+    // Record wall-clock time when tab hides so we can account for elapsed time on return
+    _hiddenAt = Date.now();
+  } else {
+    // Tab became visible again
+    if (State.timer.running && _hiddenAt > 0) {
+      const hiddenElapsed = Math.round((Date.now() - _hiddenAt) / 1000);
+      // Subtract the hidden elapsed time from remaining (clamped to 0)
+      State.timer.remaining = Math.max(0, State.timer.remaining - hiddenElapsed);
+      // Also advance the active step timer if one was running
+      if (State.stepTimer.activeId && State.stepTimer.running) {
+        State.stepTimer.remaining = Math.max(0, State.stepTimer.remaining - hiddenElapsed);
+        const activeStep = (State.timerSteps || []).find(s => s.id === State.stepTimer.activeId);
+        if (activeStep) activeStep.remaining = State.stepTimer.remaining;
+        updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
+        const stSmall = document.getElementById('step-time-small');
+        if (stSmall) stSmall.textContent = formatTimeMS(State.stepTimer.remaining);
+        // Check if step timer finished while hidden
+        if (State.stepTimer.remaining <= 0) {
+          clearInterval(State.stepTimer.interval);
+          State.stepTimer.interval = null;
+          State.stepTimer.running  = false;
+          synthesizeBell(0.3);
+          doneStep(State.stepTimer.activeId);
+        }
+      }
+      // Update main display and ring immediately
+      const td = document.getElementById('main-time-display');
+      if (td) td.textContent = formatTime(State.timer.remaining);
+      updateRingMain(State.timer.remaining, State.timer.total);
+      // Check if session completed while hidden
+      if (State.timer.remaining <= 0) {
+        clearInterval(State.timer.interval);
+        State.timer.interval = null;
+        State.timer.running  = false;
+        onTimerComplete();
+      } else {
+        // Reset the wall-clock anchor so the next tick is accurate
+        _timerLastTick = Date.now();
+      }
+    } else if (State.timer.running) {
+      _timerLastTick = Date.now();
+    }
+    _hiddenAt = 0;
     // Re-resume AudioContext if it was suspended by the browser
     if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
   }
@@ -3091,10 +3496,11 @@ function _setTabActive(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
-  // Deactivate after panel closes (panels handle their own close)
-  setTimeout(() => {
-    if (el) el.classList.remove('active');
-  }, 300);
+}
+
+// Call this from panel close functions to clear the active tab highlight
+function _setTabInactive() {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 }
 
 // Mirror sync state to bottom tab bar (called from updateSyncUI, no override needed)
@@ -3225,6 +3631,7 @@ window.addEventListener('beforeinstallprompt', e => {
 window.addEventListener('appinstalled', () => {
   _deferredPrompt = null;
   document.getElementById('pwa-banner')?.classList.remove('show');
+  localStorage.setItem('zj_pwa_dismissed', '1');
   console.log('[PWA] App installed');
 });
 
@@ -3235,6 +3642,8 @@ async function pwaBannerInstall() {
   const { outcome } = await _deferredPrompt.userChoice;
   console.log('[PWA] Install outcome:', outcome);
   _deferredPrompt = null;
+  // Suppress banner on future visits regardless of outcome
+  localStorage.setItem('zj_pwa_dismissed', '1');
 }
 
 function pwaBannerDismiss() {
@@ -3290,7 +3699,801 @@ async function registerBgSync() {
   }
 })();
 
+// ═══════════════════════════════════════════════════════
+//  TEMPLATES MODULE  (merged into single script block)
+// ═══════════════════════════════════════════════════════
+
+const TPL = {
+  activeTpl: 't01',
+  selectedType: null,
+
+  // Map each template ID to its display name (for journal entry title)
+  names: {
+    t01: 'Morning Open Protocol',
+    t02: 'Night Close Protocol',
+    t03: 'Aanapanasati Session Log',
+    t04: '90-Day Vision Statement',
+    t05: 'Scene Breakdown Analysis',
+    t06: 'Identity Architecture',
+    t07: 'Rejection Protocol',
+    t08: 'Weekly Review Protocol',
+    t09: 'Craft Session Log',
+    t10: 'Meditation Insight Journal',
+    t11: 'Breakthrough Log',
+    t12: 'Monthly Phase Verdict',
+  }
+};
+
+function tabOpenTemplates() {
+  _setTabActive('tab-templates');
+  document.getElementById('templates-panel').classList.add('show');
+}
+
+function closeTemplatesPanel() {
+  document.getElementById('templates-panel').classList.remove('show');
+  _setTabInactive();
+}
+
+function showTpl(id) {
+  // Sidebar
+  document.querySelectorAll('#tpl-list .tpl-list-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tpl === id);
+  });
+  // Forms
+  document.querySelectorAll('.tpl-form').forEach(f => f.classList.remove('active'));
+  const form = document.getElementById('tpl-' + id);
+  if (form) {
+    form.classList.add('active');
+    // Scroll form back to top
+    form.closest('.tpl-form-wrap').scrollTop = 0;
+  }
+  TPL.activeTpl = id;
+  // Reset type selection per-template switch
+  tplSelectType(null);
+}
+
+function tplScore(btn, group) {
+  const row = btn.closest('.tpl-score-row');
+  if (!row) return;
+  row.querySelectorAll('.tpl-score-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function tplPill(pill) {
+  pill.classList.toggle('active');
+}
+
+function tplSelectType(type) {
+  TPL.selectedType = type;
+  const bt = document.getElementById('tpl-btn-thought');
+  const bi = document.getElementById('tpl-btn-intention');
+  if (bt) bt.className = 'tpl-type-btn' + (type === 'thought'   ? ' sel-thought'   : '');
+  if (bi) bi.className = 'tpl-type-btn' + (type === 'intention' ? ' sel-intention' : '');
+  const capBtn = document.getElementById('tpl-capture-btn');
+  if (capBtn) capBtn.disabled = !type;
+}
+
+function tplFlash(msg) {
+  const el = document.getElementById('tpl-flash');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// Collect all filled fields from the active form into a readable text block
+function tplCollectText() {
+  const formEl = document.getElementById('tpl-' + TPL.activeTpl);
+  if (!formEl) return '';
+
+  const title = TPL.names[TPL.activeTpl] || '';
+  const date  = new Date().toLocaleDateString('en-US', {weekday:'short', year:'numeric', month:'short', day:'numeric'});
+  const lines = [`${title} — ${date}`, ''];
+
+  formEl.querySelectorAll('.tpl-field').forEach(field => {
+    const labelEl = field.querySelector('.tpl-field-label');
+    const label   = labelEl ? labelEl.textContent.trim() : '';
+    if (!label) return;
+
+    const textarea = field.querySelector('.tpl-field-textarea');
+    const input    = field.querySelector('.tpl-field-input');
+    const scoreBtn = field.querySelector('.tpl-score-btn.active');
+    const activePills = [...field.querySelectorAll('.tpl-pill.active, .tpl-rasa-pill.active')]
+                          .map(p => p.textContent.trim()).join(', ');
+
+    const val = textarea ? textarea.value.trim() : (input ? input.value.trim() : '');
+
+    // Only include fields that have data
+    if (!val && !scoreBtn && !activePills) return;
+
+    lines.push(`[ ${label.toUpperCase()} ]`);
+    if (val)        lines.push(val);
+    if (scoreBtn)   lines.push(`Score: ${scoreBtn.textContent.trim()}`);
+    if (activePills) lines.push(`Selected: ${activePills}`);
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+}
+
+function tplCapture() {
+  if (!TPL.selectedType) return;
+  const text = tplCollectText();
+  if (!text || text.length < 10) {
+    tplFlash('Fill in at least one field first');
+    return;
+  }
+
+  const entry = {
+    id:            uid(),
+    type:          TPL.selectedType,
+    text:          text,
+    createdAt:     new Date().toISOString(),
+    updatedAt:     new Date().toISOString(),
+    microsteps:    [],
+    totalDuration: 7200,
+    completedAt:   null,
+    _synced:       false,
+  };
+
+  State.entries.push(entry);
+  saveEntries();
+  SB.enqueue(entry);
+  renderHistory();
+
+  if (TPL.selectedType === 'intention') {
+    State.currentEntry = entry;
+    setupIntentionScreen(entry);
+    closeTemplatesPanel();
+    navigate('setup');
+  } else {
+    tplFlash('◦ Saved to Journal');
+    // Clear the active form
+    tplClearActiveForm();
+    tplSelectType(null);
+  }
+}
+
+function tplClearActiveForm() {
+  const formEl = document.getElementById('tpl-' + TPL.activeTpl);
+  if (!formEl) return;
+  formEl.querySelectorAll('textarea, input[type="text"]').forEach(el => el.value = '');
+  formEl.querySelectorAll('.tpl-score-btn.active').forEach(b => b.classList.remove('active'));
+  formEl.querySelectorAll('.tpl-pill.active, .tpl-rasa-pill.active').forEach(p => p.classList.remove('active'));
+}
+
 </script>
+
+<!-- ══ DOJO OS TEMPLATES PANEL ══ -->
+<div id="templates-panel">
+
+  <div class="tpl-header">
+    <div class="tpl-header-left">
+      <div class="tpl-title">DOJO OS</div>
+      <div class="tpl-subtitle">Protocol Templates · 12 Forms</div>
+    </div>
+    <button class="tpl-close-btn" onclick="closeTemplatesPanel()">close</button>
+  </div>
+
+  <div class="tpl-body">
+
+    <!-- LEFT LIST -->
+    <div class="tpl-list" id="tpl-list">
+      <div class="tpl-list-section">Daily</div>
+      <div class="tpl-list-item active" onclick="showTpl('t01')" data-tpl="t01"><span class="tpl-list-icon">🌅</span><span class="tpl-list-label">Morning Open</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t02')" data-tpl="t02"><span class="tpl-list-icon">🌑</span><span class="tpl-list-label">Night Close</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t03')" data-tpl="t03"><span class="tpl-list-icon">🧘</span><span class="tpl-list-label">Aanapanasati</span></div>
+      <div class="tpl-list-section">Foundation</div>
+      <div class="tpl-list-item" onclick="showTpl('t04')" data-tpl="t04"><span class="tpl-list-icon">🔭</span><span class="tpl-list-label">90-Day Vision</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t06')" data-tpl="t06"><span class="tpl-list-icon">⚔️</span><span class="tpl-list-label">Identity Arch.</span></div>
+      <div class="tpl-list-section">Craft</div>
+      <div class="tpl-list-item" onclick="showTpl('t05')" data-tpl="t05"><span class="tpl-list-icon">🎭</span><span class="tpl-list-label">Scene Breakdown</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t09')" data-tpl="t09"><span class="tpl-list-icon">🎬</span><span class="tpl-list-label">Craft Session</span></div>
+      <div class="tpl-list-section">Resilience</div>
+      <div class="tpl-list-item" onclick="showTpl('t07')" data-tpl="t07"><span class="tpl-list-icon">🔥</span><span class="tpl-list-label">Rejection Protocol</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t11')" data-tpl="t11"><span class="tpl-list-icon">⚡</span><span class="tpl-list-label">Breakthrough Log</span></div>
+      <div class="tpl-list-section">Review</div>
+      <div class="tpl-list-item" onclick="showTpl('t08')" data-tpl="t08"><span class="tpl-list-icon">📊</span><span class="tpl-list-label">Weekly Review</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t10')" data-tpl="t10"><span class="tpl-list-icon">💡</span><span class="tpl-list-label">Meditation Insight</span></div>
+      <div class="tpl-list-item" onclick="showTpl('t12')" data-tpl="t12"><span class="tpl-list-icon">📅</span><span class="tpl-list-label">Monthly Verdict</span></div>
+    </div>
+
+    <!-- RIGHT FORMS -->
+    <div class="tpl-form-wrap">
+
+      <!-- T01: MORNING OPEN -->
+      <div class="tpl-form active" id="tpl-t01">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🌅</div>
+          <div class="tpl-form-num">Protocol 01 · Daily · 03:00–04:00</div>
+          <div class="tpl-form-title">Morning Open Protocol</div>
+          <div class="tpl-form-desc">Activate identity · Declare intention · Anticipate resistance · Score readiness</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity Declaration</label>
+          <span class="tpl-field-hint">Who you are — stated as fact, no qualifiers</span>
+          <textarea class="tpl-field-textarea" placeholder="I am a Hollywood Martial Arts Icon. I am…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Dominant Intention</label>
+          <span class="tpl-field-hint">The one thing today must produce</span>
+          <textarea class="tpl-field-textarea" placeholder="Today's non-negotiable outcome is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Anticipated Obstacle</label>
+          <input class="tpl-field-input" type="text" placeholder="The most likely resistance today is…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Pre-Committed Response</label>
+          <input class="tpl-field-input" type="text" placeholder="If that happens, I will immediately…">
+        </div>
+        <div class="tpl-section-label">CNS Readiness</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">CNS Score (1 = crashed · 10 = primed)</label>
+          <div class="tpl-score-row" data-sg="cns01">
+            <button class="tpl-score-btn" onclick="tplScore(this,'cns01')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">CNS Read</label>
+          <input class="tpl-field-input" type="text" placeholder="Sleep quality, HRV note, body on wake…">
+        </div>
+        <div class="tpl-section-label">Satisfaction Baseline</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Baseline Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="sat01">
+            <button class="tpl-score-btn" onclick="tplScore(this,'sat01')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Morning Gratitude</label>
+          <input class="tpl-field-input" type="text" placeholder="I am genuinely grateful for…">
+        </div>
+      </div>
+
+      <!-- T02: NIGHT CLOSE -->
+      <div class="tpl-form" id="tpl-t02">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🌑</div>
+          <div class="tpl-form-num">Protocol 02 · Daily · 20:30–21:30</div>
+          <div class="tpl-form-title">Night Close Protocol</div>
+          <div class="tpl-form-desc">Account for the day · Extract the lesson · Set tomorrow's ground</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Evening Affirmation</label>
+          <input class="tpl-field-input" type="text" placeholder="Today I proved I am…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical Win</label>
+          <input class="tpl-field-input" type="text" placeholder="Sparring rounds, technique drilled, benchmark beat…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Win</label>
+          <input class="tpl-field-input" type="text" placeholder="Scene worked, accent sharpened, Rasa accessed…">
+        </div>
+        <div class="tpl-section-label">Accountability</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Shortfall</label>
+          <input class="tpl-field-input" type="text" placeholder="I did not complete… / I avoided…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Root Cause</label>
+          <span class="tpl-field-hint">Honest. Not excuses.</span>
+          <textarea class="tpl-field-textarea" placeholder="The actual reason was…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">System Fix</label>
+          <input class="tpl-field-input" type="text" placeholder="Tomorrow I will restructure… / Remove… / Add friction to…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Tomorrow's Non-Negotiable</label>
+          <input class="tpl-field-input" type="text" placeholder="No matter what happens, tomorrow I will…">
+        </div>
+        <div class="tpl-section-label">Night Score</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Day Execution Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="night02">
+            <button class="tpl-score-btn" onclick="tplScore(this,'night02')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- T03: AANAPANASATI -->
+      <div class="tpl-form" id="tpl-t03">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🧘</div>
+          <div class="tpl-form-num">Protocol 03 · Daily Meditation</div>
+          <div class="tpl-form-title">Aanapanasati Session Log</div>
+          <div class="tpl-form-desc">Breath observation → body scan → Metta radiation → insight extraction</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Duration</label>
+          <input class="tpl-field-input" type="text" placeholder="45 min">
+        </div>
+        <div class="tpl-section-label">Breath Observation</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Quality of Observation (1–10)</label>
+          <div class="tpl-score-row" data-sg="breath03">
+            <button class="tpl-score-btn" onclick="tplScore(this,'breath03')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Mind Character</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Restless</button><button class="tpl-pill" onclick="tplPill(this)">Dull</button><button class="tpl-pill" onclick="tplPill(this)">Sharp</button><button class="tpl-pill" onclick="tplPill(this)">Equanimous</button><button class="tpl-pill" onclick="tplPill(this)">Anxious</button><button class="tpl-pill" onclick="tplPill(this)">Absorbed</button><button class="tpl-pill" onclick="tplPill(this)">Scattered</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Vipassana Body Scan</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Body Sensations</label>
+          <span class="tpl-field-hint">Crown · Throat · Chest · Solar plexus · Abdomen · Limbs</span>
+          <textarea class="tpl-field-textarea" placeholder="What arose, where, and the nature of each sensation…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scan Quality</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Gross sensation</button><button class="tpl-pill" onclick="tplPill(this)">Mixed</button><button class="tpl-pill" onclick="tplPill(this)">Subtle flow</button><button class="tpl-pill" onclick="tplPill(this)">Free flow</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Metta Bhavana</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Metta Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="metta03">
+            <button class="tpl-score-btn" onclick="tplScore(this,'metta03')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Insight</label>
+          <textarea class="tpl-field-textarea" placeholder="What the silence revealed…"></textarea>
+        </div>
+      </div>
+
+      <!-- T04: 90-DAY VISION -->
+      <div class="tpl-form" id="tpl-t04">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🔭</div>
+          <div class="tpl-form-num">Protocol 04 · Foundation</div>
+          <div class="tpl-form-title">90-Day Vision Statement</div>
+          <div class="tpl-form-desc">The complete picture of Day 90 — stated as present fact</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Full Vision</label>
+          <span class="tpl-field-hint">Written in present tense. Paint it fully — environment, emotion, proof.</span>
+          <textarea class="tpl-field-textarea tall" placeholder="It is [date]. I am sitting in… I have just completed… The evidence of my transformation is…"></textarea>
+        </div>
+        <div class="tpl-section-label">Pillar Breakdowns</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical</label>
+          <textarea class="tpl-field-textarea" placeholder="Body, combat capacity, conditioning benchmarks by Day 90…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft</label>
+          <textarea class="tpl-field-textarea" placeholder="Acting skill, screen presence, Rasa range, technical ability…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Career</label>
+          <textarea class="tpl-field-textarea" placeholder="Industry position, credits, relationships, momentum…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Financial</label>
+          <textarea class="tpl-field-textarea" placeholder="Income, savings, investments, eliminated costs…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity</label>
+          <textarea class="tpl-field-textarea" placeholder="Who you will have become — beliefs, standard, proof of transformation…"></textarea>
+        </div>
+      </div>
+
+      <!-- T05: SCENE BREAKDOWN -->
+      <div class="tpl-form" id="tpl-t05">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🎭</div>
+          <div class="tpl-form-num">Protocol 05 · Craft Tool</div>
+          <div class="tpl-form-title">Scene Breakdown Analysis</div>
+          <div class="tpl-form-desc">From text to body to camera to score</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene / Script</label>
+          <input class="tpl-field-input" type="text" placeholder="Project · Scene · Pages · Character…">
+        </div>
+        <div class="tpl-section-label">Actor's Analysis</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Super-Objective</label>
+          <input class="tpl-field-input" type="text" placeholder="The character's deepest want is to…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene Objective</label>
+          <span class="tpl-field-hint">Active verb + target</span>
+          <input class="tpl-field-input" type="text" placeholder="In this scene I want to [verb] [other character] so that…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Obstacle</label>
+          <input class="tpl-field-input" type="text" placeholder="External: … / Internal: …">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Subtext</label>
+          <textarea class="tpl-field-textarea" placeholder="What the character cannot say directly… The emotional truth beneath the words…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Character Arc</label>
+          <input class="tpl-field-input" type="text" placeholder="ENTER state → CHANGE EVENT → EXIT state">
+        </div>
+        <div class="tpl-section-label">Rasa</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Primary Rasa</label>
+          <div class="tpl-rasa-row">
+            <button class="tpl-rasa-pill" onclick="tplPill(this)">Shringara · Love</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Hasya · Joy</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Karuna · Sorrow</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Raudra · Fury</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Vira · Heroism</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bhayanaka · Terror</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bibhatsa · Disgust</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Adbhuta · Wonder</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Shanta · Peace</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Performance</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical Score</label>
+          <textarea class="tpl-field-textarea" placeholder="Body, posture, breath, space use, key physical actions…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Camera Notes</label>
+          <input class="tpl-field-input" type="text" placeholder="Shot type · Eye-line · Scale of truth · Pull-back moments…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Score (Post-Work, 1–10)</label>
+          <div class="tpl-score-row" data-sg="craft05">
+            <button class="tpl-score-btn" onclick="tplScore(this,'craft05')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- T06: IDENTITY ARCHITECTURE -->
+      <div class="tpl-form" id="tpl-t06">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">⚔️</div>
+          <div class="tpl-form-num">Protocol 06 · Core Document</div>
+          <div class="tpl-form-title">Identity Architecture</div>
+          <div class="tpl-form-desc">Chief Aim · Declarations · Price · Models · Affirmations</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Chief Aim</label>
+          <span class="tpl-field-hint">One sentence. Specific. Dated. Unwavering.</span>
+          <textarea class="tpl-field-textarea" placeholder="By [date], I will be [outcome] having done [actions]…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity Declaration</label>
+          <textarea class="tpl-field-textarea tall" placeholder="I am a Hollywood Martial Arts Icon. I am… / I have… / I operate as… / My standard is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Price Being Paid</label>
+          <span class="tpl-field-hint">Stated without complaint</span>
+          <textarea class="tpl-field-textarea" placeholder="I have chosen to give up… / I am willing to endure… / The cost I accept is…"></textarea>
+        </div>
+        <div class="tpl-section-label">Role Models</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Role Model 1</label>
+          <input class="tpl-field-input" type="text" placeholder="Name · Quality · How I embody it…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Role Model 2</label>
+          <input class="tpl-field-input" type="text" placeholder="Name · Quality · How I embody it…">
+        </div>
+        <div class="tpl-section-label">Five Affirmations</div>
+        <div class="tpl-field"><label class="tpl-field-label">I</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">II</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">III</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">IV</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">V</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+      </div>
+
+      <!-- T07: REJECTION PROTOCOL -->
+      <div class="tpl-form" id="tpl-t07">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🔥</div>
+          <div class="tpl-form-num">Protocol 07 · Resilience</div>
+          <div class="tpl-form-title">Rejection Protocol</div>
+          <div class="tpl-form-desc">Convert rejection into intelligence. No spiraling. Only data.</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Rejection Type</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Audition</button><button class="tpl-pill" onclick="tplPill(this)">Callback</button><button class="tpl-pill" onclick="tplPill(this)">Submission</button><button class="tpl-pill" onclick="tplPill(this)">Other</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Facts Only</label>
+          <span class="tpl-field-hint">No interpretation. No emotion.</span>
+          <textarea class="tpl-field-textarea" placeholder="On [date], I submitted/auditioned for [role]. The outcome was [exactly what happened]…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Data Interpretation</label>
+          <textarea class="tpl-field-textarea" placeholder="This tells me… / This does NOT tell me… / The industry signal here is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Question Raised</label>
+          <input class="tpl-field-input" type="text" placeholder="This raises the question: how do I improve my…?">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">One Controlled Response</label>
+          <input class="tpl-field-input" type="text" placeholder="In response, I will [one action] by [specific time]…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity Reminder</label>
+          <input class="tpl-field-input" type="text" placeholder="This outcome does not change the fact that I am…">
+        </div>
+      </div>
+
+      <!-- T08: WEEKLY REVIEW -->
+      <div class="tpl-form" id="tpl-t08">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">📊</div>
+          <div class="tpl-form-num">Protocol 08 · Weekly · Sunday</div>
+          <div class="tpl-form-title">Weekly Review Protocol</div>
+          <div class="tpl-form-desc">Honest score · Pattern extraction · System evolution · North Star check</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Week Number</label>
+          <input class="tpl-field-input" type="text" placeholder="Week __ · Days __–__ / 90">
+        </div>
+        <div class="tpl-section-label">Pillar Scores</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="w08p">
+            <button class="tpl-score-btn" onclick="tplScore(this,'w08p')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="w08c">
+            <button class="tpl-score-btn" onclick="tplScore(this,'w08c')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Career Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="w08ca">
+            <button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Review</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Worked</label>
+          <textarea class="tpl-field-textarea" placeholder="Patterns that produced results — protect and scale these…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Was Missed</label>
+          <textarea class="tpl-field-textarea" placeholder="I did not complete… / I avoided… / I underperformed in…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Root Cause</label>
+          <textarea class="tpl-field-textarea" placeholder="The underlying cause of the misses is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Structural Change</label>
+          <input class="tpl-field-input" type="text" placeholder="Next week I will change [element] to…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">North Star Check</label>
+          <textarea class="tpl-field-textarea" placeholder="At this pace Day 90 will look like… / Next week must produce…"></textarea>
+        </div>
+      </div>
+
+      <!-- T09: CRAFT SESSION -->
+      <div class="tpl-form" id="tpl-t09">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🎬</div>
+          <div class="tpl-form-num">Protocol 09 · Daily Craft</div>
+          <div class="tpl-form-title">Craft Session Log</div>
+          <div class="tpl-form-desc">Accent · Scene · On-Camera · Rasa · Composite Score</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Duration</label>
+          <input class="tpl-field-input" type="text" placeholder="2h 30m">
+        </div>
+        <div class="tpl-section-label">Accent Work</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Accent Worked</label>
+          <input class="tpl-field-input" type="text" placeholder="Accent · Duration · Focus sounds · Materials used…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Accent Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="acc09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'acc09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Scene Work</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene Worked</label>
+          <input class="tpl-field-input" type="text" placeholder="Scene · Method · Partner or solo…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="sc09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'sc09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">On-Camera</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Camera Work</label>
+          <input class="tpl-field-input" type="text" placeholder="Filmed · Tracking: eye-line / stillness / scale of truth…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Camera Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="cam09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'cam09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Rasa</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Rasa Explored</label>
+          <div class="tpl-rasa-row">
+            <button class="tpl-rasa-pill" onclick="tplPill(this)">Shringara · Love</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Hasya · Joy</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Karuna · Sorrow</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Raudra · Fury</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Vira · Heroism</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bhayanaka · Terror</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bibhatsa · Disgust</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Adbhuta · Wonder</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Shanta · Peace</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Rasa Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="rasa09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Composite Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="comp09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'comp09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Notes</label>
+          <textarea class="tpl-field-textarea" placeholder="Key discovery today… / Next session priority… / Question to explore…"></textarea>
+        </div>
+      </div>
+
+      <!-- T10: MEDITATION INSIGHT -->
+      <div class="tpl-form" id="tpl-t10">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">💡</div>
+          <div class="tpl-form-num">Protocol 10 · Contemplative</div>
+          <div class="tpl-form-title">Meditation Insight Journal</div>
+          <div class="tpl-form-desc">Capture what silence reveals before the mind covers it again</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Type</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Aanapanasati</button><button class="tpl-pill" onclick="tplPill(this)">Vipassana</button><button class="tpl-pill" onclick="tplPill(this)">Metta</button><button class="tpl-pill" onclick="tplPill(this)">Vedic</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Raw Insight</label>
+          <span class="tpl-field-hint">Write immediately. Unfiltered. Before the analytical mind takes over.</span>
+          <textarea class="tpl-field-textarea tall" placeholder="What arose in the silence… What I saw about myself… What dissolved… What became clear…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Mind Observation</label>
+          <textarea class="tpl-field-textarea" placeholder="The mind was… / It kept returning to… / Its strategy was… / What I noticed about the observer…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Equanimity Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="eq10">
+            <button class="tpl-score-btn" onclick="tplScore(this,'eq10')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Carry Into the Day</label>
+          <input class="tpl-field-input" type="text" placeholder="From this session I am carrying… / The quality I will embody today is…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Connection to Craft</label>
+          <textarea class="tpl-field-textarea" placeholder="This insight touches my acting because… / The stillness will affect my scene work by…"></textarea>
+        </div>
+      </div>
+
+      <!-- T11: BREAKTHROUGH LOG -->
+      <div class="tpl-form" id="tpl-t11">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">⚡</div>
+          <div class="tpl-form-num">Protocol 11 · Event Log</div>
+          <div class="tpl-form-title">Breakthrough Log</div>
+          <div class="tpl-form-desc">When something cracks open — document it completely before it fades</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Domain</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Physical</button><button class="tpl-pill" onclick="tplPill(this)">Craft</button><button class="tpl-pill" onclick="tplPill(this)">Meditation</button><button class="tpl-pill" onclick="tplPill(this)">Identity</button><button class="tpl-pill" onclick="tplPill(this)">Career</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Happened</label>
+          <span class="tpl-field-hint">Context, moment, change — fully described</span>
+          <textarea class="tpl-field-textarea tall" placeholder="I was doing… / At the moment… / What shifted was… / Before: … / After: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">How It Happened</label>
+          <textarea class="tpl-field-textarea" placeholder="The conditions were… / What I had been doing before… / The specific trigger was…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Body Sensation</label>
+          <input class="tpl-field-input" type="text" placeholder="In my body it felt like… / Located in… / Quality of the sensation…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">How to Replicate</label>
+          <textarea class="tpl-field-textarea" placeholder="To access this again, I should… / Key conditions were… / Prioritize…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What It Unlocks</label>
+          <textarea class="tpl-field-textarea" placeholder="This opens the door to… / It changes my approach to… / It proves I can…"></textarea>
+        </div>
+      </div>
+
+      <!-- T12: MONTHLY PHASE VERDICT -->
+      <div class="tpl-form" id="tpl-t12">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">📅</div>
+          <div class="tpl-form-num">Protocol 12 · Phase Close</div>
+          <div class="tpl-form-title">Monthly Phase Verdict</div>
+          <div class="tpl-form-desc">KPI audit · Pattern verdict · System evolution · North Star for next phase</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Phase</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Month 1 · Days 1–30</button><button class="tpl-pill" onclick="tplPill(this)">Month 2 · Days 31–60</button><button class="tpl-pill" onclick="tplPill(this)">Month 3 · Days 61–90</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">KPI Results</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Sparring rounds — Target: … Actual: …&#10;Conditioning — Target: … Actual: …&#10;Training sessions — Target: … Actual: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Scenes worked — Target: … Actual: …&#10;Craft sessions — Target: … Actual: …&#10;Composite score avg: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Career KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Submissions — Target: … Actual: …&#10;Auditions — Target: … Actual: …&#10;Callbacks: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Financial KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Income — Target: … Actual: …&#10;Savings — Target: … Actual: …"></textarea>
+        </div>
+        <div class="tpl-section-label">Phase Verdict</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Worked</label>
+          <textarea class="tpl-field-textarea" placeholder="Patterns that produced results — protect and scale in Phase 2…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Failed</label>
+          <textarea class="tpl-field-textarea" placeholder="Honest. Not excuses. What genuinely did not work…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Root Cause</label>
+          <textarea class="tpl-field-textarea" placeholder="The pattern beneath all failures was…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Structural Change</label>
+          <textarea class="tpl-field-textarea" placeholder="In Phase 2, I will restructure [element] to eliminate [failure mode]…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">North Star — Next Phase</label>
+          <textarea class="tpl-field-textarea" placeholder="For Day 90 to be real, Phase 2 must produce… / I am entering Phase 2 as…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Phase Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="ph12">
+            <button class="tpl-score-btn" onclick="tplScore(this,'ph12')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STICKY FOOTER INSIDE FORM WRAP -->
+      <div class="tpl-footer">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="tpl-entry-type-row">
+            <button class="tpl-type-btn" id="tpl-btn-thought"    onclick="tplSelectType('thought')">◦ thought</button>
+            <button class="tpl-type-btn" id="tpl-btn-intention"  onclick="tplSelectType('intention')">◇ intention</button>
+          </div>
+          <span class="tpl-flash" id="tpl-flash"></span>
+        </div>
+        <button class="tpl-capture-btn" id="tpl-capture-btn" onclick="tplCapture()" disabled>Save to Journal</button>
+      </div>
+
+    </div><!-- /tpl-form-wrap -->
+  </div><!-- /tpl-body -->
+</div><!-- /templates-panel -->
+
+
 
 <!-- PWA install banner -->
 <div id="pwa-banner">
@@ -3319,6 +4522,12 @@ async function registerBgSync() {
 
     <!-- Right tabs -->
     <div class="tab-group">
+
+      <!-- Templates tab -->
+      <button class="tab-btn" id="tab-templates"
+        onclick="tabOpenTemplates()" aria-label="DOJO OS Protocol Templates">
+        Templates
+      </button>
 
       <!-- Data tab (import / export) -->
       <button class="tab-btn" id="tab-data"
