@@ -3814,19 +3814,24 @@ function swApplyUpdate() {
 // ── PWA install banner ──
 
 // True when running as installed PWA (standalone/fullscreen/minimal-ui)
-// Evaluated as a function so it reflects current state, not just page-load state
 function _isInstalledPWA() {
   return ['standalone','fullscreen','minimal-ui']
     .some(m => window.matchMedia('(display-mode: ' + m + ')').matches)
     || window.navigator.standalone === true;  // iOS Safari
 }
 
+// Single source of truth: banner must never show once either key is set
+function _isPwaInstalled() {
+  return _isInstalledPWA()
+    || !!localStorage.getItem('zj_pwa_installed')
+    || !!localStorage.getItem('zj_pwa_dismissed');
+}
+
 function _showPwaBanner() {
-  // Never show if already installed or permanently dismissed
-  if (localStorage.getItem('zj_pwa_installed') || localStorage.getItem('zj_pwa_dismissed')) return;
+  if (_isPwaInstalled()) return;  // re-check at show time
   const banner = document.getElementById('pwa-banner');
   if (!banner) return;
-  banner.style.pointerEvents = '';  // clear any inline override
+  banner.style.pointerEvents = '';
   banner.classList.add('show');
   document.body.classList.add('pwa-banner-visible');
 }
@@ -3837,61 +3842,87 @@ function _hidePwaBanner(permanent) {
   banner.classList.remove('show');
   banner.style.pointerEvents = 'none';
   document.body.classList.remove('pwa-banner-visible');
-  if (permanent) localStorage.setItem('zj_pwa_dismissed', '1');
+  if (permanent) {
+    localStorage.setItem('zj_pwa_dismissed', '1');
+  }
 }
 
-// Single source of truth: banner must never show once either key is set
-function _isPwaInstalled() {
-  return _isInstalledPWA()
-    || !!localStorage.getItem('zj_pwa_installed')
-    || !!localStorage.getItem('zj_pwa_dismissed');
-}
+// On startup: use getInstalledRelatedApps() (Chrome Android 85+) to detect
+// if the PWA is already installed even when opened in the browser tab.
+// This is the only reliable way to know when running in browser-mode post-install.
+(function _checkAlreadyInstalled() {
+  if (_isPwaInstalled()) {
+    // Already flagged — ensure banner stays hidden
+    _hidePwaBanner(false);
+    return;
+  }
+  if ('getInstalledRelatedApps' in navigator) {
+    navigator.getInstalledRelatedApps().then(apps => {
+      if (apps && apps.length > 0) {
+        // PWA is installed — mark it and keep banner away permanently
+        localStorage.setItem('zj_pwa_installed', '1');
+        localStorage.setItem('zj_pwa_dismissed', '1');
+        _hidePwaBanner(false);
+        _deferredPrompt = null;
+      }
+    }).catch(() => {/* ignore — best-effort */});
+  }
+})();
 
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-
-  // Never show if already installed or dismissed
-  if (_isPwaInstalled()) return;
-
-  _deferredPrompt = e;
-
-  setTimeout(() => {
-    // Re-check: user may have installed or dismissed during the 3 s delay
-    if (_isPwaInstalled() || !_deferredPrompt) return;
-    _showPwaBanner();
-  }, 3000);
-});
-
-window.addEventListener('appinstalled', () => {
-  _deferredPrompt = null;
-  localStorage.setItem('zj_pwa_installed', '1'); // permanent — never cleared
-  localStorage.setItem('zj_pwa_dismissed', '1');  // belt-and-suspenders
-  _hidePwaBanner(true);  // also writes zj_pwa_dismissed
-});
-
-// Hide banner whenever the app transitions to standalone (e.g. after install + reopen)
+// Hide banner whenever display-mode transitions to standalone (install completed)
 ;['standalone','fullscreen','minimal-ui'].forEach(m => {
   window.matchMedia('(display-mode: ' + m + ')').addEventListener('change', e => {
     if (e.matches) {
       _deferredPrompt = null;
       localStorage.setItem('zj_pwa_installed', '1');
-      _hidePwaBanner(true);
+      localStorage.setItem('zj_pwa_dismissed', '1');
+      _hidePwaBanner(false);
     }
   });
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredPrompt = null;
+  localStorage.setItem('zj_pwa_installed', '1');
+  localStorage.setItem('zj_pwa_dismissed', '1');
+  _hidePwaBanner(false);
+});
+
+window.addEventListener('beforeinstallprompt', e => {
+  // ALWAYS call preventDefault first — suppresses Chrome's native mini-infobar.
+  // Must happen before ANY early return or the browser reclaims the event.
+  e.preventDefault();
+
+  // Always store the prompt so it stays captured (prevents native infobar)
+  _deferredPrompt = e;
+
+  // Only show our custom banner if not already installed/dismissed
+  if (_isPwaInstalled()) return;
+
+  setTimeout(() => {
+    if (_isPwaInstalled() || !_deferredPrompt) return;
+    _showPwaBanner();
+  }, 3000);
 });
 
 async function pwaBannerInstall() {
   if (!_deferredPrompt) return;
   const prompt = _deferredPrompt;
-  _deferredPrompt = null;  // clear before await so any re-fired event is ignored
   _hidePwaBanner(true);    // hide immediately — don't wait for userChoice
   try {
     prompt.prompt();
     const { outcome } = await prompt.userChoice;
     if (outcome === 'accepted') {
+      _deferredPrompt = null;
       localStorage.setItem('zj_pwa_installed', '1');
+      localStorage.setItem('zj_pwa_dismissed', '1');
+    } else {
+      // User dismissed the native prompt — clear our reference but don't re-show banner
+      // Chrome will re-fire beforeinstallprompt later; we'll capture it then
+      _deferredPrompt = null;
     }
   } catch(e) {
+    _deferredPrompt = null;
     console.warn('[PWA] Install prompt failed:', e);
   }
 }
@@ -4812,4 +4843,4 @@ function tplClearActiveForm() {
 </div>
 
 </body>
-</html>      
+</html>
