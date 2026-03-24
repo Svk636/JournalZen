@@ -1,0 +1,4614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f7f5f0">
+<meta name="color-scheme" content="light">
+<meta name="description" content="Zen Journal — a mindful thought and intention tracker">
+<meta property="og:title" content="Zen Journal">
+<meta property="og:description" content="A mindful thought and intention tracker with timed sessions and cloud sync">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Zen Journal">
+<meta name="twitter:description" content="A mindful thought and intention tracker with timed sessions and cloud sync">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zen Journal">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="msapplication-TileImage" content="icons/icon-144.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<meta name="msapplication-TileColor" content="#f7f5f0">
+<title>Zen Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200;0,300;0,400;1,200;1,300;1,400&family=DM+Mono:wght@300;400&family=Petit+Formal+Script&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #f7f5f0;
+  --bg2:         #f2ede6;
+  --ink:         #1a1814;
+  --ink2:        #2e2b25;
+  --muted:       #9a9488;
+  --faint:       #c8c2b8;
+  --thought:     #7a6848;
+  --intention:   #3d6b5e;
+  --danger:      #8b4040;
+  --done:        #3d5b6b;
+  --border:      rgba(26,24,20,0.1);
+  --border2:     rgba(26,24,20,0.06);
+  --overlay:     rgba(247,245,240,0.97);
+
+  --f-body:     'Crimson Pro', Georgia, serif;
+  --f-script:   'Petit Formal Script', cursive;
+  --f-mono:     'DM Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-weight: 300;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle paper texture */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+}
+
+/* ── Animations ── */
+@keyframes fadeIn  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+@keyframes breathe { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+@keyframes ringPulse { 0%,100% { filter: drop-shadow(0 0 0 rgba(61,107,94,0)); } 50% { filter: drop-shadow(0 0 12px rgba(61,107,94,0.15)); } }
+
+/* ── Layout ── */
+#app {
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 52px 40px 0;
+  /* leave room for 52px tab bar + safe area */
+  padding-bottom: max(80px, calc(72px + env(safe-area-inset-bottom)));
+  padding-left:  max(40px, calc(24px + env(safe-area-inset-left)));
+  padding-right: max(40px, calc(24px + env(safe-area-inset-right)));
+  min-height: 100vh;
+}
+
+.screen { display: none; animation: fadeIn 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+.screen.active { display: block; }
+
+/* ── Top wordmark (screen name only, no actions) ── */
+.brand {
+  margin-bottom: 56px;
+}
+.brand-name {
+  font-family: var(--f-script);
+  font-size: 24px;
+  color: var(--ink2);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+/* hide old brand-actions entirely — actions moved to bottom tab bar */
+.brand-actions { display: none; }
+
+/* ══════════════════════════════════════════
+   BOTTOM TAB BAR
+   Fixed bar: App name  ·  Data  ·  Sync
+══════════════════════════════════════════ */
+#bottom-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 400;
+  background: var(--bg);
+  border-top: 1px solid var(--border2);
+  /* safe-area for notched phones */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex;
+  align-items: stretch;
+}
+
+.tab-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 0 max(28px, env(safe-area-inset-left));
+  height: 52px;
+}
+
+/* App name centre */
+.tab-app-name {
+  font-family: var(--f-script);
+  font-size: 18px;
+  color: var(--ink2);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Tab group (right side) */
+.tab-group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Each tab button */
+.tab-btn {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 0;
+  transition: color 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  position: relative;
+}
+.tab-btn:hover { color: var(--muted); }
+.tab-btn.active { color: var(--ink); }
+
+/* Active indicator line above the button */
+.tab-btn.active::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0; right: 0;
+  height: 1px;
+  background: var(--ink);
+  border-radius: 0;
+}
+
+/* Sync status dot inside the sync tab */
+#tab-sync-dot {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: currentColor; display: inline-block;
+  margin-left: 3px; vertical-align: middle;
+  transition: color 0.3s;
+}
+#tab-sync-status { display: flex; align-items: center; gap: 0; }
+#tab-sync-status.ok     { color: var(--intention); }
+#tab-sync-status.error  { color: var(--danger); }
+#tab-sync-status.syncing{ color: var(--thought); }
+@keyframes sblink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+#tab-sync-status.syncing #tab-sync-dot { animation: sblink 1s infinite; }
+
+#tab-queue-badge {
+  display: none;
+  font-size: 7px;
+  background: var(--thought);
+  color: var(--bg);
+  padding: 0 3px;
+  margin-left: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* Keep old #sync-status but hide it — JS still uses it internally */
+#sync-status { display: none !important; }
+#queue-badge { display: none !important; }
+
+/* ── Journal capture area ── */
+.capture-area { margin-bottom: 40px; }
+
+#entry-text {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1.75;
+  resize: none;
+  min-height: 100px;
+  caret-color: var(--intention);
+  padding-bottom: 16px;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.4s;
+}
+#entry-text:focus { border-bottom-color: var(--border); }
+#entry-text::placeholder {
+  color: var(--faint);
+  font-style: italic;
+  font-weight: 200;
+}
+
+/* ── Type toggle ── */
+.type-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s, transform 0.5s;
+  pointer-events: none;
+}
+.type-toggle.visible { opacity: 1; transform: translateY(0); pointer-events: all; }
+
+.type-btn {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 7px 18px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.25s;
+  border-radius: 0;
+}
+.type-btn:hover { border-color: var(--muted); color: var(--ink); }
+.type-btn.selected-thought  { border-color: var(--thought);   color: var(--thought);   background: rgba(122,104,72,0.05); }
+.type-btn.selected-intention{ border-color: var(--intention); color: var(--intention); background: rgba(61,107,94,0.05); }
+
+/* ── Capture button ── */
+.capture-btn {
+  font-family: var(--f-body);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s, color 0.25s;
+}
+.capture-btn.visible { opacity: 1; pointer-events: all; }
+.capture-btn:hover { color: var(--ink); }
+
+/* ── Flash ── */
+.flash {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  color: var(--thought);
+  text-transform: uppercase;
+  height: 18px;
+  margin-bottom: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.flash.show { opacity: 1; }
+
+/* ── Divider ── */
+.divider {
+  height: 1px;
+  background: var(--border2);
+  margin: 52px 0;
+}
+
+/* ── Entry history ── */
+.history-label {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.35em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.entry-card {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border2);
+  animation: fadeIn 0.4s ease both;
+  cursor: default;
+}
+.entry-card:last-child { border-bottom: none; }
+
+.entry-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.entry-badge {
+  font-family: var(--f-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.badge-thought   { color: var(--thought); }
+.badge-intention { color: var(--intention); }
+
+.entry-sync-icon { font-size: 9px; color: var(--faint); margin-left: 2px; }
+
+.entry-time {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  color: var(--faint);
+  margin-left: auto;
+  letter-spacing: 0.05em;
+}
+
+.entry-text-preview {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-style: italic;
+  font-weight: 300;
+}
+
+/* ══════════════════════
+   SETUP SCREEN
+══════════════════════ */
+.setup-intention-text {
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--ink);
+  margin-bottom: 48px;
+  padding-left: 20px;
+  border-left: 1px solid var(--intention);
+}
+
+.field-label {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.duration-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 48px;
+}
+
+.duration-input {
+  font-family: var(--f-mono);
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--faint);
+  outline: none;
+  width: 70px;
+  text-align: center;
+  padding-bottom: 4px;
+  caret-color: var(--intention);
+  transition: border-color 0.2s;
+}
+.duration-input:focus { border-color: var(--intention); }
+
+.duration-sep { font-family: var(--f-mono); font-size: 24px; color: var(--faint); }
+.duration-unit { font-family: var(--f-mono); font-size: 9px; color: var(--faint); letter-spacing: 0.15em; margin-left: 4px; }
+
+.microsteps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.add-step-btn {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--intention);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  padding: 0;
+}
+.add-step-btn:hover { opacity: 0.6; }
+
+#steps-list { margin-bottom: 16px; }
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border2);
+  animation: fadeIn 0.25s ease both;
+  cursor: grab;
+}
+.step-row:active { cursor: grabbing; }
+.step-row.dragging { opacity: 0.3; }
+.step-row.drag-over { border-top: 1px solid var(--intention); }
+
+.drag-handle {
+  color: var(--faint);
+  font-size: 13px;
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+  letter-spacing: -1px;
+}
+
+.step-text-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  font-weight: 300;
+}
+.step-text-input::placeholder { color: var(--faint); font-style: italic; }
+
+.step-dur-input {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--intention);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--faint);
+  outline: none;
+  width: 36px;
+  text-align: center;
+  padding-bottom: 2px;
+}
+.step-dur-label {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  color: var(--faint);
+  letter-spacing: 0.1em;
+}
+
+.remove-step-btn {
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.remove-step-btn:hover { color: var(--danger); }
+
+.steps-total {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  color: var(--faint);
+  letter-spacing: 0.1em;
+  margin-bottom: 40px;
+  height: 16px;
+}
+
+.begin-btn {
+  font-family: var(--f-body);
+  font-size: 16px;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: var(--bg);
+  background: var(--intention);
+  border: none;
+  padding: 14px 40px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.begin-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+.back-btn {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  margin-right: 24px;
+  transition: color 0.2s;
+}
+.back-btn:hover { color: var(--muted); }
+
+/* ══════════════════════
+   TIMER SCREEN
+══════════════════════ */
+.timer-intention-text {
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--muted);
+  margin-bottom: 48px;
+  text-align: center;
+}
+
+.timer-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.ring-svg {
+  width: 220px;
+  height: 220px;
+  transform: rotate(-90deg);
+  animation: ringPulse 4s ease-in-out infinite;
+}
+.ring-svg.paused { animation: none; }
+
+.ring-track {
+  fill: none;
+  stroke: var(--border2);
+  stroke-width: 1;
+}
+
+.ring-progress {
+  fill: none;
+  stroke: var(--intention);
+  stroke-width: 1;
+  stroke-linecap: butt;
+  transition: stroke-dashoffset 1s linear;
+  opacity: 0.7;
+}
+
+.ring-step-progress {
+  fill: none;
+  stroke: var(--thought);
+  stroke-width: 1;
+  stroke-linecap: butt;
+  stroke-dasharray: 490.09;
+  stroke-dashoffset: 490.09;
+  transition: stroke-dashoffset 1s linear;
+  opacity: 0.5;
+}
+
+.timer-display-wrap {
+  position: relative;
+  margin-top: -127px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.main-time {
+  font-family: var(--f-mono);
+  font-size: 34px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  line-height: 1;
+  animation: timerBreath 4s ease-in-out infinite;
+  transition: color 0.4s;
+}
+.main-time.paused {
+  color: var(--faint);
+  animation: none;
+}
+@keyframes timerBreath {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+.step-time-small {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--thought);
+  letter-spacing: 0.1em;
+  margin-top: 8px;
+  min-height: 18px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+.step-time-small:empty { opacity: 0; }
+
+.timer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-bottom: 48px;
+}
+
+.ctrl-btn {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s;
+  border-bottom: 1px solid transparent;
+}
+.ctrl-btn:hover { color: var(--ink); border-bottom-color: var(--faint); }
+.ctrl-btn.abandon { color: var(--faint); }
+.ctrl-btn.abandon:hover { color: var(--danger); border-bottom-color: var(--danger); }
+
+.steps-section-label {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.35em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.timer-step-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border2);
+  transition: all 0.3s;
+  animation: fadeIn 0.3s ease both;
+}
+.timer-step-row:last-child { border-bottom: none; }
+.timer-step-row.active-step {
+  border-left: 1px solid var(--intention);
+  padding-left: 16px;
+  margin-left: -17px;
+}
+.timer-step-row.done-step    { opacity: 0.28; }
+.timer-step-row.skipped-step { opacity: 0.18; }
+
+.step-start-btn {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--intention);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+  padding: 0;
+  opacity: 0.7;
+}
+.step-start-btn:hover { opacity: 1; }
+.step-start-btn:disabled { opacity: 0.2; cursor: default; }
+
+.step-name-display { flex: 1; font-size: 16px; font-weight: 300; color: var(--ink); line-height: 1.4; }
+.done-step    .step-name-display { text-decoration: line-through; }
+.skipped-step .step-name-display { text-decoration: line-through; font-style: italic; }
+
+.step-mini-timer {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--thought);
+  min-width: 42px;
+  text-align: right;
+  opacity: 0.7;
+}
+
+.step-action-btns { display: flex; gap: 14px; flex-shrink: 0; }
+
+.step-skip-btn, .step-done-btn {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  padding: 0;
+}
+.step-skip-btn { color: var(--faint); }
+.step-skip-btn:hover { color: var(--danger); }
+.step-done-btn { color: var(--faint); }
+.step-done-btn:hover { color: var(--intention); }
+
+/* ── Completion overlay ── */
+#completion-overlay {
+  position: fixed; inset: 0;
+  background: var(--overlay);
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 150; text-align: center;
+  padding: max(40px, env(safe-area-inset-top)) 40px max(40px, env(safe-area-inset-bottom));
+  animation: fadeIn 0.5s ease both;
+}
+#completion-overlay.show { display: flex; }
+
+.completion-glyph { font-family: var(--f-script); font-size: 52px; color: var(--intention); margin-bottom: 20px; opacity: 0.7; }
+.completion-title { font-family: var(--f-body); font-size: 34px; font-style: italic; font-weight: 300; color: var(--ink); margin-bottom: 8px; }
+.completion-subtitle { font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 40px; text-transform: uppercase; }
+
+.completion-stats { display: flex; gap: 40px; margin-bottom: 48px; }
+.stat-item { text-align: center; }
+.stat-num { font-family: var(--f-mono); font-size: 26px; font-weight: 300; color: var(--ink); display: block; }
+.stat-label { font-family: var(--f-mono); font-size: 7.5px; letter-spacing: 0.25em; color: var(--faint); text-transform: uppercase; }
+
+.reflect-btn {
+  font-family: var(--f-body);
+  font-size: 16px;
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: var(--bg);
+  background: var(--intention);
+  border: none;
+  padding: 14px 40px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.reflect-btn:hover { opacity: 0.88; }
+
+/* ── Abandon confirm ── */
+#abandon-confirm {
+  position: fixed; inset: 0;
+  background: var(--overlay);
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 101; text-align: center; gap: 24px;
+  animation: fadeIn 0.2s ease both;
+}
+#abandon-confirm.show { display: flex; }
+#abandon-confirm p { font-family: var(--f-body); font-size: 20px; font-style: italic; color: var(--muted); }
+.abandon-btns { display: flex; gap: 24px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--faint); }
+
+/* ══════════════════════
+   AUTH SCREEN
+══════════════════════ */
+#auth-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 300;
+  padding: max(60px, env(safe-area-inset-top)) max(40px, env(safe-area-inset-right)) max(60px, env(safe-area-inset-bottom)) max(40px, env(safe-area-inset-left));
+  overflow-y: auto;
+}
+#auth-screen.hidden { display: none !important; }
+
+.auth-brand {
+  font-family: var(--f-script);
+  font-size: 36px;
+  color: var(--ink2);
+  margin-bottom: 52px;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.auth-glyph { display: none; }
+
+.auth-tabs {
+  display: flex; gap: 0; max-width: 360px; width: 100%; margin-bottom: 36px;
+  border-bottom: 1px solid var(--border);
+}
+.auth-tab {
+  flex: 1;
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; padding: 10px; background: transparent; border: none;
+  color: var(--faint); cursor: pointer; transition: color 0.2s;
+  border-bottom: 1px solid transparent; margin-bottom: -1px;
+}
+.auth-tab:hover { color: var(--muted); }
+.auth-tab.active { color: var(--intention); border-bottom-color: var(--intention); }
+
+.auth-form { width: 100%; max-width: 360px; }
+.auth-field { margin-bottom: 20px; }
+
+.auth-label {
+  font-family: var(--f-mono); font-size: 7.5px; letter-spacing: 0.22em;
+  color: var(--faint); display: block; margin-bottom: 8px; text-transform: uppercase;
+}
+
+.auth-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--faint);
+  color: var(--ink);
+  font-family: var(--f-body); font-size: 18px; font-weight: 300;
+  padding: 6px 0 8px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+.auth-input:focus { border-bottom-color: var(--intention); }
+.auth-input::placeholder { color: var(--faint); font-style: italic; }
+
+.auth-submit-btn {
+  width: 100%;
+  font-family: var(--f-body); font-size: 16px; font-style: italic;
+  background: var(--intention); color: var(--bg);
+  border: none; padding: 13px; cursor: pointer;
+  transition: opacity 0.2s; margin-top: 8px;
+  letter-spacing: 0.04em;
+}
+.auth-submit-btn:hover { opacity: 0.88; }
+.auth-submit-btn:disabled { opacity: 0.35; cursor: default; }
+
+.auth-msg {
+  font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.1em;
+  min-height: 20px; margin-top: 16px; text-align: center; line-height: 1.6;
+}
+.auth-msg.error   { color: var(--danger); }
+.auth-msg.success { color: var(--intention); }
+.auth-msg.info    { color: var(--faint); }
+
+.auth-forgot {
+  font-family: var(--f-body); font-size: 13px; font-style: italic;
+  color: var(--faint); background: transparent; border: none;
+  cursor: pointer; margin-top: 14px; display: block; text-align: center;
+  transition: color 0.2s; width: 100%;
+}
+.auth-forgot:hover { color: var(--muted); }
+
+/* ══════════════════════
+   OVERLAYS (shared)
+══════════════════════ */
+.overlay-panel {
+  position: fixed; inset: 0;
+  background: var(--overlay);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 200; opacity: 0; pointer-events: none;
+  transition: opacity 0.35s; padding: 48px 40px; overflow-y: auto;
+}
+.overlay-panel.show { opacity: 1; pointer-events: all; }
+
+/* ── Settings / cfg panel ── */
+.cfg-panel-title {
+  font-family: var(--f-script); font-size: 28px; color: var(--ink2);
+  margin-bottom: 6px; letter-spacing: 0.02em;
+}
+.cfg-panel-sub {
+  font-family: var(--f-mono); font-size: 8.5px; color: var(--faint);
+  max-width: 360px; text-align: center; line-height: 1.7; margin-bottom: 32px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.cfg-user-row {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 360px; width: 100%; margin-bottom: 28px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.cfg-user-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--intention); flex-shrink: 0; }
+.cfg-user-email { font-family: var(--f-mono); font-size: 11px; color: var(--ink); }
+.cfg-btns { display: flex; gap: 20px; max-width: 360px; width: 100%; }
+.cfg-cancel-btn {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; background: transparent; color: var(--faint);
+  border: none; padding: 0 0 2px; cursor: pointer;
+  transition: color 0.2s; border-bottom: 1px solid transparent;
+}
+.cfg-cancel-btn:hover { color: var(--muted); border-bottom-color: var(--faint); }
+.cfg-signout-btn {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; background: transparent; color: var(--faint);
+  border: none; padding: 0 0 2px; cursor: pointer;
+  transition: color 0.2s; border-bottom: 1px solid transparent;
+}
+.cfg-signout-btn:hover { color: var(--danger); border-bottom-color: var(--danger); }
+
+/* ══════════════════════
+   IMPORT / EXPORT PANEL
+══════════════════════ */
+#io-panel {
+  position: fixed; inset: 0;
+  background: var(--overlay);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 250; opacity: 0; pointer-events: none;
+  transition: opacity 0.35s; padding: 48px 40px; overflow-y: auto;
+}
+#io-panel.show { opacity: 1; pointer-events: all; }
+
+.io-title {
+  font-family: var(--f-script); font-size: 28px; color: var(--ink2);
+  margin-bottom: 44px; letter-spacing: 0.02em;
+}
+
+.io-section { width: 100%; max-width: 360px; margin-bottom: 32px; }
+
+.io-section-label {
+  font-family: var(--f-mono); font-size: 7.5px; letter-spacing: 0.3em;
+  color: var(--faint); text-transform: uppercase;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+.io-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border2); }
+
+.io-btn-row { display: flex; gap: 12px; }
+
+.io-btn {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.15em;
+  text-transform: uppercase; padding: 9px 0;
+  background: transparent; color: var(--muted); border: none;
+  cursor: pointer; transition: all 0.2s; flex: 1; text-align: center;
+  border-bottom: 1px solid var(--faint);
+}
+.io-btn:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.io-btn.json:hover  { color: var(--thought);   border-bottom-color: var(--thought); }
+.io-btn.csv:hover   { color: var(--intention); border-bottom-color: var(--intention); }
+.io-btn.pdf:hover   { color: var(--done);      border-bottom-color: var(--done); }
+.io-btn:disabled    { opacity: 0.2; cursor: default; }
+
+.io-drop-zone {
+  width: 100%; max-width: 360px;
+  border: 1px dashed var(--faint);
+  padding: 28px 20px; text-align: center;
+  cursor: pointer; transition: all 0.3s; margin-bottom: 10px;
+}
+.io-drop-zone:hover, .io-drop-zone.drag-over {
+  border-color: var(--intention); background: rgba(61,107,94,0.03);
+}
+
+.io-drop-label {
+  font-family: var(--f-body); font-size: 16px; font-style: italic;
+  font-weight: 300; color: var(--muted); display: block; margin-bottom: 6px;
+}
+.io-drop-sub {
+  font-family: var(--f-mono); font-size: 8px; color: var(--faint); letter-spacing: 0.1em;
+}
+#io-file-input { display: none; }
+
+.io-status {
+  font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.12em;
+  min-height: 18px; text-align: center; margin-top: 16px; max-width: 360px; width: 100%;
+}
+.io-status.ok    { color: var(--intention); }
+.io-status.error { color: var(--danger); }
+.io-status.info  { color: var(--faint); }
+
+.io-close-btn {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--faint); background: transparent;
+  border: none; border-bottom: 1px solid transparent;
+  padding: 0 0 2px; cursor: pointer; transition: all 0.2s; margin-top: 10px;
+}
+.io-close-btn:hover { color: var(--muted); border-bottom-color: var(--faint); }
+
+#io-trigger {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.15em;
+  color: var(--faint); background: transparent; border: none;
+  cursor: pointer; transition: color 0.2s; padding: 0; text-transform: uppercase;
+}
+#io-trigger:hover { color: var(--muted); }
+
+/* ── Mobile responsive ── */
+@media (max-width: 480px) {
+  #app { padding: 40px 24px 0; padding-bottom: max(76px, calc(68px + env(safe-area-inset-bottom))); }
+  .tab-bar-inner { padding: 0 20px; }
+  .tab-app-name { font-size: 16px; }
+  .brand { margin-bottom: 48px; }
+  .brand-name { font-size: 20px; }
+  #entry-text { font-size: 21px; }
+  .timer-ring-wrap .ring-svg { width: 190px; height: 190px; }
+  .timer-display-wrap { margin-top: -128px; }
+  .main-time { font-size: 28px; }
+  .auth-brand { font-size: 30px; margin-bottom: 40px; }
+  .step-action-btns { gap: 8px; }
+  .completion-stats { gap: 24px; }
+}
+
+@media (max-width: 360px) {
+  #app { padding: 40px 18px 0; padding-bottom: max(70px, calc(52px + env(safe-area-inset-bottom))); }
+  .main-time { font-size: 24px; }
+  .ring-svg { width: 170px; height: 170px; }
+  .timer-display-wrap { margin-top: -115px; }
+}
+
+/* ══════════════════════════════════════════
+   DOJO OS TEMPLATES OVERLAY
+══════════════════════════════════════════ */
+
+#templates-panel {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 450;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.25s ease both;
+}
+#templates-panel.show { display: flex; }
+
+/* Header bar */
+.tpl-header {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px max(28px, env(safe-area-inset-left)) 16px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg);
+}
+.tpl-header-left { display: flex; flex-direction: column; gap: 2px; }
+.tpl-title {
+  font-family: var(--f-script);
+  font-size: 22px;
+  color: var(--ink2);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.tpl-subtitle {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+.tpl-close-btn {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0 0 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tpl-close-btn:hover { color: var(--muted); border-bottom-color: var(--faint); }
+
+/* Two-pane layout */
+.tpl-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* LEFT: template picker */
+.tpl-list {
+  flex-shrink: 0;
+  width: 220px;
+  border-right: 1px solid var(--border2);
+  overflow-y: auto;
+  padding: 16px 0;
+}
+
+@media (max-width: 600px) {
+  .tpl-list { width: 54px; }
+  .tpl-list-label { display: none; }
+  .tpl-list-label { display: none; }
+}
+
+.tpl-list-section {
+  font-family: var(--f-mono);
+  font-size: 7px;
+  letter-spacing: 0.3em;
+  color: var(--faint);
+  text-transform: uppercase;
+  padding: 12px 16px 6px;
+}
+
+.tpl-list-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 2px solid transparent;
+}
+.tpl-list-item:hover { background: rgba(26,24,20,0.04); }
+.tpl-list-item:focus { outline: 1px solid var(--intention); outline-offset: -1px; background: rgba(61,107,94,0.04); }
+.tpl-list-item.active {
+  border-left-color: var(--intention);
+  background: rgba(61,107,94,0.06);
+}
+.tpl-list-icon { font-size: 16px; flex-shrink: 0; line-height: 1; }
+.tpl-list-label {
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.tpl-list-item.active .tpl-list-label { color: var(--intention); }
+.tpl-list-item:focus-visible { outline: 1px solid var(--intention); outline-offset: -1px; }
+
+/* RIGHT: form area — outer pane holds scroll area + sticky footer */
+.tpl-right-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.tpl-form-wrap {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tpl-form {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  padding: 28px max(32px, calc(20px + env(safe-area-inset-right))) 32px max(32px, env(safe-area-inset-left));
+  animation: fadeIn 0.3s ease both;
+}
+.tpl-form.active { display: flex; }
+
+.tpl-form-header {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border2);
+}
+.tpl-form-icon { font-size: 24px; margin-bottom: 8px; }
+.tpl-form-num {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.tpl-form-title {
+  font-family: var(--f-body);
+  font-size: 22px;
+  font-style: italic;
+  font-weight: 300;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.tpl-form-desc {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+}
+
+/* Field rows */
+.tpl-field {
+  margin-bottom: 24px;
+}
+.tpl-field-label {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+.tpl-field-hint {
+  font-family: var(--f-body);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--faint);
+  display: block;
+  margin-bottom: 6px;
+}
+.tpl-field-input, .tpl-field-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  font-weight: 300;
+  line-height: 1.65;
+  padding: 6px 0 8px;
+  outline: none;
+  resize: none;
+  caret-color: var(--intention);
+  transition: border-color 0.3s;
+}
+.tpl-field-input:focus, .tpl-field-textarea:focus { border-bottom-color: var(--intention); }
+.tpl-field-input::placeholder, .tpl-field-textarea::placeholder {
+  color: var(--faint); font-style: italic; font-weight: 200;
+}
+.tpl-field-textarea { min-height: 70px; }
+.tpl-field-textarea.tall { min-height: 120px; }
+
+/* Score row */
+.tpl-score-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tpl-score-btn {
+  width: 34px; height: 34px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--faint);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.tpl-score-btn:hover, .tpl-score-btn.active {
+  background: rgba(61,107,94,0.08);
+  border-color: var(--intention);
+  color: var(--intention);
+}
+
+/* Pill checks */
+.tpl-pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tpl-pill {
+  padding: 5px 14px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tpl-pill:hover, .tpl-pill.active {
+  background: rgba(61,107,94,0.08);
+  border-color: var(--intention);
+  color: var(--intention);
+}
+
+/* Section divider inside form */
+.tpl-section-label {
+  font-family: var(--f-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.3em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin: 24px 0 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.tpl-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border2); }
+
+/* Rasa pills */
+.tpl-rasa-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tpl-rasa-pill {
+  padding: 5px 12px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 100px;
+}
+.tpl-rasa-pill:hover, .tpl-rasa-pill.active {
+  background: rgba(122,104,72,0.08);
+  border-color: var(--thought);
+  color: var(--thought);
+}
+
+/* Footer bar with capture */
+.tpl-footer {
+  flex-shrink: 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border2);
+  padding: 14px max(32px, env(safe-area-inset-right)) max(20px, calc(14px + env(safe-area-inset-bottom))) max(32px, env(safe-area-inset-left));
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+}
+.tpl-entry-type-row { display: flex; gap: 8px; }
+.tpl-type-btn {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid var(--faint);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tpl-type-btn:hover { border-color: var(--muted); color: var(--ink); }
+.tpl-type-btn.sel-thought  { border-color: var(--thought);   color: var(--thought);   background: rgba(122,104,72,0.06); }
+.tpl-type-btn.sel-intention{ border-color: var(--intention); color: var(--intention); background: rgba(61,107,94,0.06); }
+
+.tpl-capture-btn {
+  font-family: var(--f-body);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--bg);
+  background: var(--intention);
+  border: none;
+  padding: 10px 28px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.tpl-capture-btn:hover { opacity: 0.88; }
+.tpl-capture-btn:disabled { opacity: 0.3; cursor: default; }
+
+.tpl-flash {
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  color: var(--intention);
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.tpl-flash.show { opacity: 1; }
+
+/* ── Print ── */
+@media print {
+  #auth-screen, #cfg-panel, #io-panel, #completion-overlay, #abandon-confirm,
+  #bottom-bar, #pwa-banner, #sw-update-toast { display: none !important; }
+  .brand-actions { display: none; }
+  .screen { display: block !important; }
+  #screen-journal { display: block !important; }
+  #screen-setup, #screen-timer { display: none !important; }
+}
+
+/* ── PWA install prompt ── */
+#pwa-banner {
+  position: fixed; bottom: max(52px, calc(52px + env(safe-area-inset-bottom))); left: 0; right: 0; z-index: 9000;
+  background: var(--bg2); border-top: 1px solid var(--border);
+  padding: 14px max(20px,env(safe-area-inset-right)) max(14px,calc(8px + env(safe-area-inset-bottom))) max(20px,env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 14px;
+  transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+  pointer-events: none;
+}
+#pwa-banner.show { transform: translateY(0); pointer-events: all; }
+.pwa-icon {
+  width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+  background: var(--intention); display: flex; align-items: center; justify-content: center;
+}
+.pwa-icon-glyph { font-family: var(--f-script); font-size: 18px; color: var(--bg); line-height: 1; }
+.pwa-text { flex: 1; min-width: 0; }
+.pwa-title { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink); margin-bottom: 2px; }
+.pwa-sub   { font-family: var(--f-body);  font-size: 12px; font-style: italic; color: var(--muted); }
+.pwa-install-btn {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  background: var(--intention); color: var(--bg); border: none; padding: 8px 16px;
+  cursor: pointer; flex-shrink: 0; transition: opacity 0.2s;
+}
+.pwa-install-btn:hover { opacity: 0.85; }
+.pwa-dismiss-btn {
+  font-family: var(--f-mono); font-size: 20px; color: var(--faint);
+  background: transparent; border: none; cursor: pointer;
+  min-width: 44px; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: color 0.2s; line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.pwa-dismiss-btn:hover { color: var(--muted); }
+
+/* ── SW update toast ── */
+#sw-update-toast {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-80px);
+  z-index: 9001; background: var(--ink); color: var(--bg);
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+  white-space: nowrap; pointer-events: none;
+}
+#sw-update-toast.show { transform: translateX(-50%) translateY(0); pointer-events: all; }
+.sw-toast-text { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; }
+.sw-update-btn {
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.15em; text-transform: uppercase;
+  background: var(--intention); color: var(--bg); border: none; padding: 5px 12px;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.sw-update-btn:hover { opacity: 0.85; }
+
+/* ═══════════════════════════════
+   VOICE INPUT
+═══════════════════════════════ */
+
+/* Mic button — main journal */
+.voice-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--faint); transition: color 0.2s;
+  padding: 0; position: relative;
+}
+.voice-btn:hover { color: var(--muted); }
+.voice-btn.listening { color: var(--intention); }
+.voice-btn.unsupported { opacity: 0.2; cursor: not-allowed; }
+
+/* Mic SVG icon */
+.voice-btn svg { width: 18px; height: 18px; }
+
+/* Pulse ring when listening */
+.voice-btn.listening::before {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--intention);
+  animation: mic-ring 1.4s ease-out infinite;
+}
+@keyframes mic-ring {
+  0%   { transform: scale(0.85); opacity: 0.8; }
+  70%  { transform: scale(1.2);  opacity: 0;   }
+  100% { transform: scale(1.2);  opacity: 0;   }
+}
+
+/* Interim transcript ghost */
+#voice-interim {
+  font-family: var(--f-body);
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 200;
+  color: var(--faint);
+  min-height: 30px;
+  margin-bottom: 6px;
+  line-height: 1.6;
+  transition: opacity 0.2s;
+  opacity: 0;
+}
+#voice-interim.show { opacity: 1; }
+
+/* Voice status strip */
+#voice-status {
+  font-family: var(--f-mono);
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--intention);
+  height: 14px;
+  margin-bottom: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#voice-status.show { opacity: 1; }
+
+/* Input row wraps textarea + mic button */
+.input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.input-row #entry-text { flex: 1; }
+
+/* Small mic button on step rows */
+.step-voice-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex-shrink: 0;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--faint); transition: color 0.2s; padding: 0;
+  position: relative;
+}
+.step-voice-btn svg { width: 13px; height: 13px; }
+.step-voice-btn:hover { color: var(--muted); }
+.step-voice-btn.listening {
+  color: var(--intention);
+}
+.step-voice-btn.listening::before {
+  content: '';
+  position: absolute; inset: -3px; border-radius: 50%;
+  border: 1px solid var(--intention);
+  animation: mic-ring 1.4s ease-out infinite;
+}
+
+/* Language selector */
+#voice-lang-select {
+  font-family: var(--f-mono); font-size: 8px; letter-spacing: 0.1em;
+  color: var(--faint); background: transparent;
+  border: none; border-bottom: 1px solid var(--border2);
+  outline: none; cursor: pointer; padding: 2px 0;
+  transition: color 0.2s; appearance: none; -webkit-appearance: none;
+}
+#voice-lang-select:hover { color: var(--muted); }
+#voice-lang-select option { background: var(--bg); color: var(--ink); font-size: 12px; }
+
+.voice-lang-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.voice-lang-row.show { opacity: 1; pointer-events: all; }
+.voice-lang-label {
+  font-family: var(--f-mono); font-size: 8px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--faint);
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SCREEN 1: JOURNAL -->
+  <div id="screen-journal" class="screen active">
+    <div class="brand">
+      <span class="brand-name">Zen Journal</span>
+    </div>
+    <!-- keep hidden legacy sync elements for JS compat -->
+    <div id="sync-status" style="display:none" aria-hidden="true">
+      <div id="sync-dot"></div>
+      <span id="sync-label"></span>
+      <span id="queue-badge"></span>
+    </div>
+
+    <div class="capture-area">
+      <div id="voice-interim" aria-live="polite"></div>
+      <div class="input-row">
+        <textarea id="entry-text" rows="4" placeholder="What is present in your mind right now…"></textarea>
+        <button class="voice-btn" id="voice-main-btn" onclick="Voice.toggleMain()" title="Speak your thought" aria-label="Start voice input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="11" rx="3"/>
+            <path d="M19 10a7 7 0 0 1-14 0"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8"  y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+      </div>
+      <div id="voice-status" role="status" aria-live="polite"></div>
+      <div class="voice-lang-row" id="voice-lang-row">
+        <span class="voice-lang-label">lang</span>
+        <select id="voice-lang-select" onchange="Voice.setLang(this.value)" title="Recognition language">
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="en-IN">English (IN)</option>
+          <option value="hi-IN">Hindi</option>
+          <option value="ja-JP">Japanese</option>
+          <option value="zh-CN">Chinese</option>
+          <option value="es-ES">Spanish</option>
+          <option value="fr-FR">French</option>
+          <option value="de-DE">German</option>
+          <option value="pt-BR">Portuguese</option>
+          <option value="ar-SA">Arabic</option>
+          <option value="ko-KR">Korean</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="type-toggle" id="type-toggle">
+      <button class="type-btn" id="btn-thought"    onclick="selectType('thought')">&#9702; thought</button>
+      <button class="type-btn" id="btn-intention"  onclick="selectType('intention')">&#9671; intention</button>
+    </div>
+
+    <div class="flash" id="flash-msg"></div>
+    <button class="capture-btn" id="capture-btn" onclick="captureEntry()">— hold —</button>
+
+    <div class="divider"></div>
+
+    <div class="history-label">Recent</div>
+    <div id="entry-history"></div>
+  </div>
+
+  <!-- SCREEN 2: SETUP -->
+  <div id="screen-setup" class="screen">
+    <div class="brand">
+      <span class="brand-name">Intention</span>
+    </div>
+
+    <div class="setup-intention-text" id="setup-intention-text"></div>
+
+    <span class="field-label">Duration</span>
+    <div class="duration-row">
+      <input class="duration-input" id="dur-hours" type="number" min="0" max="23" value="2">
+      <span class="duration-sep">:</span>
+      <input class="duration-input" id="dur-mins" type="number" min="0" max="59" value="0">
+      <span class="duration-unit">h : m</span>
+    </div>
+
+    <div class="microsteps-header">
+      <span class="field-label" style="margin-bottom:0">Microsteps</span>
+      <button class="add-step-btn" onclick="addStep()">+ step</button>
+    </div>
+
+    <div id="steps-list"></div>
+    <div class="steps-total" id="steps-total"></div>
+
+    <div>
+      <button class="back-btn" onclick="backFromSetup()">&#8592; back</button>
+      <button class="begin-btn" onclick="beginIntention()">Begin</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: TIMER -->
+  <div id="screen-timer" class="screen">
+    <div class="brand">
+      <span class="brand-name">In Session</span>
+    </div>
+
+    <div class="timer-intention-text" id="timer-intention-text"></div>
+
+    <div class="timer-ring-wrap">
+      <svg class="ring-svg" viewBox="0 0 200 200">
+        <circle class="ring-track" cx="100" cy="100" r="90"/>
+        <circle class="ring-progress" id="ring-main" cx="100" cy="100" r="90"
+          stroke-dasharray="565.5" stroke-dashoffset="0"/>
+        <circle class="ring-track" cx="100" cy="100" r="78" opacity="0.5"/>
+        <circle class="ring-step-progress" id="ring-step" cx="100" cy="100" r="78" stroke-dasharray="490.09" stroke-dashoffset="490.09"/>
+      </svg>
+      <div class="timer-display-wrap">
+        <div class="main-time" id="main-time-display">02:00:00</div>
+        <div class="step-time-small" id="step-time-small"></div>
+      </div>
+    </div>
+
+    <div class="timer-controls">
+      <button class="ctrl-btn" id="pause-btn" onclick="togglePause()">pause</button>
+      <button class="ctrl-btn abandon" onclick="showAbandon()">abandon</button>
+    </div>
+
+    <div class="steps-section-label" id="steps-section-label">Steps</div>
+    <div id="timer-steps-list"></div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="hidden">
+  <div class="auth-brand">Zen Journal</div>
+
+  <div class="auth-tabs">
+    <button class="auth-tab active" id="tab-signin" onclick="switchAuthTab('signin')">Sign in</button>
+    <button class="auth-tab"        id="tab-signup" onclick="switchAuthTab('signup')">Sign up</button>
+  </div>
+
+  <div class="auth-form" id="form-signin">
+    <div class="auth-field">
+      <label class="auth-label">Email</label>
+      <input class="auth-input" id="si-email" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Password</label>
+      <input class="auth-input" id="si-password" type="password" placeholder="password" autocomplete="current-password">
+    </div>
+    <button class="auth-submit-btn" id="si-btn" onclick="doSignIn()">Sign in</button>
+    <button class="auth-forgot" onclick="switchAuthTab('reset')">Forgot password</button>
+    <div class="auth-msg" id="si-msg"></div>
+  </div>
+
+  <div class="auth-form" id="form-signup" style="display:none">
+    <div class="auth-field">
+      <label class="auth-label">Email</label>
+      <input class="auth-input" id="su-email" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Password</label>
+      <input class="auth-input" id="su-password" type="password" placeholder="min 6 characters" autocomplete="new-password">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Confirm</label>
+      <input class="auth-input" id="su-password2" type="password" placeholder="repeat password" autocomplete="new-password">
+    </div>
+    <button class="auth-submit-btn" id="su-btn" onclick="doSignUp()">Create account</button>
+    <div class="auth-msg" id="su-msg"></div>
+  </div>
+
+  <div class="auth-form" id="form-reset" style="display:none">
+    <div class="auth-field">
+      <label class="auth-label">Email</label>
+      <input class="auth-input" id="rs-email" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <button class="auth-submit-btn" id="rs-btn" onclick="doResetPassword()">Send reset link</button>
+    <button class="auth-forgot" onclick="switchAuthTab('signin')">&#8592; back to sign in</button>
+    <div class="auth-msg" id="rs-msg"></div>
+  </div>
+  <button class="auth-forgot" onclick="hideAuthScreen()" style="margin-top:32px;opacity:0.55;">Continue without an account</button>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div id="cfg-panel" class="overlay-panel">
+  <div class="cfg-panel-title">Sync</div>
+  <div class="cfg-panel-sub">Signed in &mdash; entries sync automatically</div>
+  <div class="cfg-user-row">
+    <div class="cfg-user-dot"></div>
+    <span class="cfg-user-email" id="cfg-user-email">loading&hellip;</span>
+  </div>
+  <div class="cfg-btns">
+    <button class="cfg-cancel-btn"  onclick="closeCfgPanel()">close</button>
+    <button class="cfg-signout-btn" onclick="doSignOut()">sign out</button>
+  </div>
+</div>
+
+<!-- IMPORT / EXPORT PANEL -->
+<div id="io-panel">
+  <div class="io-title">Data</div>
+
+  <div class="io-section">
+    <div class="io-section-label">Export</div>
+    <div class="io-btn-row">
+      <button class="io-btn json" onclick="exportJSON()">JSON</button>
+      <button class="io-btn csv"  onclick="exportCSV()">CSV</button>
+      <button class="io-btn pdf"  onclick="exportPDF()">PDF</button>
+    </div>
+  </div>
+
+  <div class="io-section">
+    <div class="io-section-label">Import</div>
+    <div class="io-drop-zone" id="io-drop-zone"
+      onclick="document.getElementById('io-file-input').click()"
+      ondragover="ioDragOver(event)"
+      ondragleave="ioDragLeave(event)"
+      ondrop="ioDrop(event)">
+      <span class="io-drop-label">Drop file or click to browse</span>
+      <span class="io-drop-sub">.json or .csv</span>
+    </div>
+    <input type="file" id="io-file-input" accept=".json,.csv" onchange="ioFileSelected(event)">
+  </div>
+
+  <div class="io-status" id="io-status"></div>
+  <button class="io-close-btn" onclick="closeIoPanel()">close</button>
+</div>
+
+<!-- COMPLETION OVERLAY -->
+<div id="completion-overlay">
+  <div class="completion-glyph">&#9675;</div>
+  <div class="completion-title">Complete</div>
+  <div class="completion-subtitle" id="completion-duration-label"></div>
+  <div class="completion-stats">
+    <div class="stat-item"><span class="stat-num" id="stat-done">0</span><span class="stat-label">Done</span></div>
+    <div class="stat-item"><span class="stat-num" id="stat-skipped">0</span><span class="stat-label">Skipped</span></div>
+    <div class="stat-item"><span class="stat-num" id="stat-pending">0</span><span class="stat-label">Remaining</span></div>
+  </div>
+  <button class="reflect-btn" onclick="reflectAndReturn()">Return</button>
+</div>
+
+<!-- ABANDON CONFIRM -->
+<div id="abandon-confirm">
+  <p>Abandon this intention?</p>
+  <div class="abandon-btns">
+    <button class="ctrl-btn abandon" onclick="confirmAbandon()">abandon</button>
+    <button class="ctrl-btn" onclick="hideAbandon()">continue</button>
+  </div>
+</div>
+<script>
+
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const State = {
+  currentScreen: 'journal',
+  selectedType: null,
+  currentEntry: null,
+  entries: [],
+  steps: [],           // setup screen step objects
+  timer: {
+    total: 7200,
+    remaining: 7200,
+    interval: null,
+    running: false,
+  },
+  stepTimer: {
+    activeId: null,
+    remaining: 0,
+    total: 0,
+    interval: null,
+    running: false,
+  },
+  timerSteps: [],      // runtime step objects with status
+};
+
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function formatTime(seconds) {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function formatTimeMS(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const ts = new Date(iso).getTime();
+  if (isNaN(ts)) return '';
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 0) return 'just now';   // future timestamp (clock skew / bad import)
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+function saveEntries() {
+  try {
+    if (State.entries.length > 90) {
+      State.entries = State.entries.slice(-90);
+    }
+    localStorage.setItem('zj_entries', JSON.stringify(State.entries));
+  } catch(e) {
+    // Surface storage quota errors so the user knows their data wasn't saved
+    if (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)) {
+      flash('⚠ Storage full — export your entries');
+    }
+  }
+}
+
+function loadEntries() {
+  try {
+    const raw = localStorage.getItem('zj_entries');
+    if (raw) State.entries = JSON.parse(raw);
+  } catch(e) { State.entries = []; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
+function navigate(screen) {
+  if (typeof Voice !== 'undefined') Voice.stopAll();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + screen);
+  if (!el) { console.warn('[navigate] unknown screen:', screen); return; }
+  el.classList.add('active');
+  // Force reflow for animation
+  void el.offsetWidth;
+  State.currentScreen = screen;
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCREEN 1 — JOURNAL
+// ═══════════════════════════════════════════════════════
+const entryTA = document.getElementById('entry-text');
+const typeToggle = document.getElementById('type-toggle');
+const captureBtn = document.getElementById('capture-btn');
+
+entryTA.addEventListener('input', () => {
+  // Auto-resize
+  entryTA.style.height = 'auto';
+  entryTA.style.height = entryTA.scrollHeight + 'px';
+  // Show controls
+  const hasText = entryTA.value.trim().length > 0;
+  typeToggle.classList.toggle('visible', hasText);
+  captureBtn.classList.toggle('visible', hasText && State.selectedType !== null);
+});
+
+function selectType(type) {
+  State.selectedType = type;
+  document.getElementById('btn-thought').className = 'type-btn' + (type === 'thought' ? ' selected-thought' : '');
+  document.getElementById('btn-intention').className = 'type-btn' + (type === 'intention' ? ' selected-intention' : '');
+  if (entryTA.value.trim().length > 0) captureBtn.classList.add('visible');
+}
+
+function captureEntry() {
+  const text = entryTA.value.trim();
+  if (!text || !State.selectedType) return;
+
+  const entry = {
+    id: uid(),
+    type: State.selectedType,
+    text,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    microsteps: [],
+    totalDuration: 7200,
+    completedAt: null,
+    _synced: false,
+  };
+
+  State.entries.push(entry);
+  saveEntries();
+  SB.enqueue(entry);
+
+  if (State.selectedType === 'intention') {
+    State.currentEntry = entry;
+    setupIntentionScreen(entry);
+    navigate('setup');
+  } else {
+    // Flash and reset
+    flash('◦ Thought noted');
+    resetJournalForm();
+  }
+  renderHistory();
+}
+
+function flash(msg) {
+  const el = document.getElementById('flash-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function backFromSetup() {
+  // Nullify currentEntry so a stale reference can't corrupt a future session
+  State.currentEntry = null;
+  State.steps = [];
+  navigate('journal');
+}
+
+function resetJournalForm() {
+  entryTA.value = '';
+  entryTA.style.height = 'auto';
+  State.selectedType = null;
+  typeToggle.classList.remove('visible');
+  captureBtn.classList.remove('visible');
+  document.getElementById('btn-thought').className = 'type-btn';
+  document.getElementById('btn-intention').className = 'type-btn';
+}
+
+function renderHistory() {
+  const el = document.getElementById('entry-history');
+  const recent = [...State.entries].reverse().slice(0, 6);
+  if (!recent.length) { el.innerHTML = '<div style="font-family:var(--f-mono);font-size:10px;color:var(--muted);letter-spacing:0.15em;">no entries yet</div>'; return; }
+  el.innerHTML = recent.map(e => `
+    <div class="entry-card">
+      <div class="entry-card-header">
+        <span class="entry-badge ${e.type === 'thought' ? 'badge-thought' : e.type === 'intention' ? 'badge-intention' : ''}">${escapeHtml(String(e.type || ''))}</span>
+        <span class="entry-sync-icon" title="${e._synced ? 'synced to cloud' : 'local only'}">${e._synced ? '☁' : '◌'}</span>
+        <span class="entry-time">${relativeTime(e.createdAt)}</span>
+      </div>
+      <div class="entry-text-preview">${escapeHtml(e.text.slice(0, 80))}${e.text.length > 80 ? '…' : ''}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCREEN 2 — SETUP
+// ═══════════════════════════════════════════════════════
+function setupIntentionScreen(entry) {
+  document.getElementById('setup-intention-text').textContent = entry.text;
+  document.getElementById('dur-hours').value = 2;
+  document.getElementById('dur-mins').value = 0;
+  State.steps = [];
+  renderStepsList();
+}
+
+function addStep() {
+  State.steps.push({ id: uid(), text: '', duration: 10 });
+  renderStepsList();
+  // Focus last text input
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('.step-text-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }, 50);
+}
+
+function removeStep(id) {
+  State.steps = State.steps.filter(s => s.id !== id);
+  renderStepsList();
+}
+
+function renderStepsList() {
+  const el = document.getElementById('steps-list');
+  el.innerHTML = State.steps.map((s, i) => `
+    <div class="step-row" draggable="true" data-id="${s.id}"
+      ondragstart="dragStart(event,'${s.id}')"
+      ondragover="dragOver(event)"
+      ondrop="dragDrop(event,'${s.id}')"
+      ondragleave="dragLeave(event)"
+      ondragend="dragEnd(event)">
+      <span class="drag-handle">≡</span>
+      <input class="step-text-input" id="step-input-${s.id}" placeholder="Describe this step…"
+        value="${escapeHtml(s.text)}"
+        oninput="updateStepText('${s.id}', this.value)">
+      <button class="step-voice-btn" id="step-voice-btn-${s.id}"
+        onclick="Voice.toggleStep('${s.id}')"
+        title="Speak this step" aria-label="Voice input for step">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="11" rx="3"/>
+          <path d="M19 10a7 7 0 0 1-14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8"  y1="22" x2="16" y2="22"/>
+        </svg>
+      </button>
+      <input class="step-dur-input" type="number" min="1" max="999" value="${s.duration}"
+        oninput="updateStepDur('${s.id}', this.value)">
+      <span class="step-dur-label">min</span>
+      <button class="remove-step-btn" onclick="removeStep('${s.id}')">×</button>
+    </div>
+  `).join('');
+  updateStepsTotal();
+}
+
+function updateStepText(id, val) {
+  const s = State.steps.find(x => x.id === id);
+  if (s) s.text = val;
+}
+
+function updateStepDur(id, val) {
+  const s = State.steps.find(x => x.id === id);
+  if (s) s.duration = Math.max(1, parseInt(val) || 10);
+  updateStepsTotal();
+}
+
+function updateStepsTotal() {
+  const h = parseInt(document.getElementById('dur-hours').value) || 0;
+  const m = parseInt(document.getElementById('dur-mins').value) || 0;
+  const total = h * 60 + m;
+  const stepsTotal = State.steps.reduce((a, s) => a + s.duration, 0);
+  const el = document.getElementById('steps-total');
+  if (State.steps.length) {
+    el.textContent = `Steps total: ${stepsTotal} min of ${total} min session`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+document.getElementById('dur-hours').addEventListener('input', e => {
+  let v = parseInt(e.target.value);
+  if (isNaN(v) || v < 0) { e.target.value = 0; }
+  else if (v > 23) { e.target.value = 23; }
+  updateStepsTotal();
+});
+document.getElementById('dur-mins').addEventListener('input', e => {
+  let v = parseInt(e.target.value);
+  if (isNaN(v) || v < 0) { e.target.value = 0; }
+  else if (v > 59) { e.target.value = 59; }
+  updateStepsTotal();
+});
+
+// ── Drag & Drop ──
+let dragSrcId = null;
+function dragStart(e, id) { dragSrcId = id; e.currentTarget.classList.add('dragging'); }
+function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function dragEnd(e) { e.currentTarget.classList.remove('dragging'); dragSrcId = null; }
+function dragDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragSrcId) return;            // no drag in progress (e.g. browser extension drop)
+  if (dragSrcId === targetId) return;
+  const srcIdx = State.steps.findIndex(s => s.id === dragSrcId);
+  const tgtIdx = State.steps.findIndex(s => s.id === targetId);
+  if (srcIdx === -1 || tgtIdx === -1) return;  // stale IDs after a re-render
+  const [moved] = State.steps.splice(srcIdx, 1);
+  State.steps.splice(tgtIdx, 0, moved);
+  renderStepsList();
+  dragSrcId = null;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function beginIntention() {
+  const h = parseInt(document.getElementById('dur-hours').value) || 0;
+  const m = parseInt(document.getElementById('dur-mins').value) || 0;
+  const totalSecs = (h * 3600) + (m * 60);
+  if (totalSecs < 60) {
+    const tot = document.getElementById('steps-total');
+    if (tot) { tot.textContent = 'Please set a duration of at least 1 minute'; tot.style.color = 'var(--danger)'; setTimeout(() => { tot.textContent = ''; tot.style.color = ''; updateStepsTotal(); }, 2500); }
+    return;
+  }
+
+  // Collect steps from DOM (text may have been typed)
+  document.querySelectorAll('.step-row').forEach(row => {
+    const id = row.dataset.id;
+    const s = State.steps.find(x => x.id === id);
+    if (s) {
+      s.text = row.querySelector('.step-text-input').value;
+      s.duration = Math.max(1, parseInt(row.querySelector('.step-dur-input').value) || 10);
+    }
+  });
+
+  // Update entry
+  State.currentEntry.totalDuration = totalSecs;
+  State.currentEntry.microsteps = State.steps.map(s => ({...s, status: 'pending'}));
+  State.currentEntry.updatedAt = new Date().toISOString();
+  saveEntries();
+  SB.enqueue(State.currentEntry);
+
+  // Init timer state — full reset so 2nd+ runs are clean
+  clearInterval(State.timer.interval);
+  clearInterval(State.stepTimer.interval);
+  State.timer.total     = totalSecs;
+  State.timer.remaining = totalSecs;
+  State.timer.running   = false;
+  State.timer.interval  = null;
+  State.stepTimer.activeId  = null;
+  State.stepTimer.remaining = 0;
+  State.stepTimer.total     = 0;
+  State.stepTimer.running   = false;
+  State.stepTimer.interval  = null;
+
+  State.timerSteps = State.steps.map(s => ({
+    id: s.id,
+    text: s.text || 'Step',
+    duration: s.duration * 60,
+    remaining: s.duration * 60,  // tracks elapsed remaining (updated on stop)
+    status: 'pending',
+  }));
+
+  renderTimerScreen();
+  navigate('timer');
+  startMainTimer();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCREEN 3 — TIMER
+// ═══════════════════════════════════════════════════════
+function renderTimerScreen() {
+  if (!State.currentEntry) return;   // guard: no entry set yet
+  document.getElementById('timer-intention-text').textContent = State.currentEntry.text;
+  document.getElementById('main-time-display').textContent = formatTime(State.timer.remaining);
+  document.getElementById('step-time-small').textContent = '';
+  updateRingMain(State.timer.remaining, State.timer.total);
+  updateRingStep(0, 1);
+  renderTimerSteps();
+  document.getElementById('pause-btn').textContent = 'pause';
+  document.getElementById('main-time-display').classList.remove('paused');
+}
+
+function renderTimerSteps() {
+  const el = document.getElementById('timer-steps-list');
+  if (!el) return;
+  const steps = State.timerSteps || [];
+  const lbl = document.getElementById('steps-section-label');
+  if (!steps.length) {
+    if (lbl) lbl.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  if (lbl) lbl.style.display = '';
+  el.innerHTML = steps.map(s => {
+    const isActive = State.stepTimer.activeId === s.id;
+    const statusClass = s.status === 'done' ? 'done-step' : s.status === 'skipped' ? 'skipped-step' : isActive ? 'active-step' : '';
+    const displayTime = (s.remaining !== undefined && s.remaining < s.duration) ? s.remaining : s.duration;
+    const miniTime = isActive ? `<span class="step-mini-timer">${formatTimeMS(State.stepTimer.remaining)}</span>` : `<span class="step-mini-timer" style="color:var(--faint)">${formatTimeMS(displayTime)}</span>`;
+    const startDisabled = (s.status !== 'pending' && !isActive) ? 'disabled' : '';
+    const startLabel = isActive ? '▪ stop' : '▷ start';
+    const actions = (s.status === 'pending' || isActive) ? `
+      <div class="step-action-btns">
+        <button class="step-skip-btn" onclick="skipStep('${s.id}')">SKIP</button>
+        <button class="step-done-btn" onclick="doneStep('${s.id}')">DONE</button>
+      </div>` : (s.status === 'done' ? `<span style="font-family:var(--f-mono);font-size:10px;color:var(--done)">✓</span>` : `<span style="font-family:var(--f-mono);font-size:10px;color:var(--faint)">—</span>`);
+    return `
+      <div class="timer-step-row ${statusClass}" id="tsr-${s.id}">
+        <button class="step-start-btn" onclick="startStepTimer('${s.id}')" ${startDisabled}>${startLabel}</button>
+        <span class="step-name-display">${escapeHtml(s.text)}</span>
+        ${miniTime}
+        ${actions}
+      </div>`;
+  }).join('');
+}
+
+// ── Main Timer ──
+let _timerLastTick = 0;  // wall-clock anchor for drift correction
+
+function startMainTimer() {
+  // Guard: clear any stale interval before starting
+  if (State.timer.interval) {
+    clearInterval(State.timer.interval);
+    State.timer.interval = null;
+  }
+  State.timer.running  = true;
+  _timerLastTick       = Date.now();
+  State.timer.interval = setInterval(() => {
+    if (!State.timer.running) return;
+    // Wall-clock drift correction: use actual elapsed time, not tick count
+    const now     = Date.now();
+    const elapsed = Math.round((now - _timerLastTick) / 1000);
+    _timerLastTick = now;
+    State.timer.remaining = Math.max(0, State.timer.remaining - elapsed);
+    const td = document.getElementById('main-time-display');
+    if (td) td.textContent = formatTime(State.timer.remaining);
+    updateRingMain(State.timer.remaining, State.timer.total);
+    if (State.timer.remaining <= 0) {
+      clearInterval(State.timer.interval);
+      State.timer.interval = null;
+      State.timer.running  = false;
+      onTimerComplete();
+    }
+  }, 1000);
+}
+
+function togglePause() {
+  // Only allow pause/resume if a session has been started
+  if (!State.timer.total || State.timer.remaining <= 0) return;
+  State.timer.running = !State.timer.running;
+  const btn  = document.getElementById('pause-btn');
+  const disp = document.getElementById('main-time-display');
+  const ring = document.querySelector('.ring-svg');
+  if (State.timer.running) {
+    if (btn) btn.textContent = 'pause';
+    if (disp) disp.classList.remove('paused');
+    ring?.classList.remove('paused');
+    _timerLastTick = Date.now();  // reset anchor so first tick after resume is accurate
+    // Resume step timer if one was active (interval still running, just re-enable flag)
+    if (State.stepTimer.activeId && State.stepTimer.interval) {
+      State.stepTimer.running = true;
+      _stepTimerLastTick = Date.now();  // reset step timer anchor too
+    }
+  } else {
+    if (btn) btn.textContent = 'resume';
+    if (disp) disp.classList.add('paused');
+    ring?.classList.add('paused');
+    State.stepTimer.running = false;
+  }
+}
+
+// ── Step Timer ──
+let _stepTimerLastTick = 0;  // wall-clock anchor for step timer drift correction
+
+function startStepTimer(id) {
+  // Don't start a step timer if session is paused (not the toggle-off case)
+  const alreadyActive = State.stepTimer.activeId === id;
+  if (!alreadyActive && !State.timer.running) return;
+  // If this step is already active — clicking again STOPS it (toggle off)
+  if (State.stepTimer.activeId === id) {
+    // Save how much time is left so mini-timer shows correct remaining time
+    const stoppingStep = (State.timerSteps || []).find(s => s.id === id);
+    if (stoppingStep) stoppingStep.remaining = State.stepTimer.remaining;
+    clearInterval(State.stepTimer.interval);
+    State.stepTimer.interval  = null;
+    State.stepTimer.activeId  = null;
+    State.stepTimer.running   = false;
+    const sm = document.getElementById('step-time-small');
+    if (sm) sm.textContent = '';
+    updateRingStep(0, 1);
+    renderTimerSteps();
+    return;
+  }
+
+  // Clear any existing step timer first
+  if (State.stepTimer.interval) {
+    clearInterval(State.stepTimer.interval);
+    State.stepTimer.interval = null;
+  }
+  State.stepTimer.running  = false;
+  State.stepTimer.activeId = null;
+
+  const step = (State.timerSteps || []).find(s => s.id === id);
+  if (!step || step.status !== 'pending') return;
+  // Step timer starts even if main is paused; interval guards against ticking
+
+  State.stepTimer.activeId  = id;
+  // Resume from saved remaining (if step was previously stopped mid-way)
+  State.stepTimer.remaining = (step.remaining !== undefined && step.remaining < step.duration)
+    ? step.remaining : step.duration;
+  State.stepTimer.total     = step.duration;
+  State.stepTimer.running   = true;
+
+  renderTimerSteps();
+  updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
+  _stepTimerLastTick = Date.now();  // wall-clock anchor
+
+  State.stepTimer.interval = setInterval(() => {
+    if (!State.stepTimer.running || !State.timer.running) return;
+    // Wall-clock drift correction: use actual elapsed time, not tick count
+    const now          = Date.now();
+    const elapsed      = Math.round((now - _stepTimerLastTick) / 1000);
+    _stepTimerLastTick = now;
+    State.stepTimer.remaining = Math.max(0, State.stepTimer.remaining - elapsed);
+    // Keep step object in sync with live remaining
+    const activeStep = (State.timerSteps || []).find(s => s.id === id);
+    if (activeStep) activeStep.remaining = State.stepTimer.remaining;
+    const miniEl = document.querySelector(`#tsr-${id} .step-mini-timer`);
+    if (miniEl) miniEl.textContent = formatTimeMS(State.stepTimer.remaining);
+    const stSmall = document.getElementById('step-time-small');
+    if (stSmall) stSmall.textContent = formatTimeMS(State.stepTimer.remaining);
+    updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
+    if (State.stepTimer.remaining <= 0) {
+      clearInterval(State.stepTimer.interval);
+      State.stepTimer.interval = null;
+      State.stepTimer.running  = false;
+      // Only auto-complete if the step is still pending — it may have been
+      // manually skipped while the interval was still counting down
+      const completingStep = (State.timerSteps || []).find(s => s.id === id);
+      if (completingStep && completingStep.status === 'pending') {
+        synthesizeBell(0.3);
+        doneStep(id);
+      } else {
+        // Step was skipped mid-countdown — clean up timer UI without marking done
+        State.stepTimer.activeId  = null;
+        State.stepTimer.remaining = 0;
+        State.stepTimer.total     = 0;
+        const small = document.getElementById('step-time-small');
+        if (small) small.textContent = '';
+        updateRingStep(0, 1);
+        renderTimerSteps();
+      }
+    }
+  }, 1000);
+}
+
+function skipStep(id) {
+  const step = (State.timerSteps || []).find(s => s.id === id);
+  if (!step || step.status !== 'pending') return;
+  step.status = 'skipped';
+  step.remaining = 0;
+  if (State.stepTimer.activeId === id) {
+    clearInterval(State.stepTimer.interval);
+    State.stepTimer.interval  = null;
+    State.stepTimer.activeId  = null;
+    State.stepTimer.remaining = 0;
+    State.stepTimer.total     = 0;
+    State.stepTimer.running   = false;
+    const small = document.getElementById('step-time-small');
+    if (small) small.textContent = '';
+    updateRingStep(0, 1);
+  }
+  renderTimerSteps();
+  _syncStepStatus();
+}
+
+function doneStep(id) {
+  const step = (State.timerSteps || []).find(s => s.id === id);
+  if (!step || step.status === 'done' || step.status === 'skipped') return;
+  step.status = 'done';
+  step.remaining = 0;
+  if (State.stepTimer.activeId === id) {
+    clearInterval(State.stepTimer.interval);
+    State.stepTimer.interval  = null;
+    State.stepTimer.activeId  = null;
+    State.stepTimer.remaining = 0;
+    State.stepTimer.total     = 0;
+    State.stepTimer.running   = false;
+    const small = document.getElementById('step-time-small');
+    if (small) small.textContent = '';
+    updateRingStep(0, 1);
+  }
+  renderTimerSteps();
+  _syncStepStatus();
+}
+
+// ── Ring updates ──
+function updateRingMain(remaining, total) {
+  const el = document.getElementById('ring-main');
+  if (!el) return;
+  const circ = 565.5;
+  const frac = total > 0 ? remaining / total : 0;
+  el.style.strokeDashoffset = circ * (1 - frac);
+}
+
+function updateRingStep(remaining, total) {
+  const el = document.getElementById('ring-step');
+  if (!el) return;
+  const circ = 2 * Math.PI * 78;   // r=78 → circumference ≈ 490.09
+  const frac = total > 0 ? remaining / total : 0;
+  el.style.strokeDasharray  = circ;
+  el.style.strokeDashoffset = circ * (1 - frac);
+}
+
+// ── Bell sound ──
+// Shared AudioContext — reuse to avoid mobile suspension issues
+let _audioCtx = null;
+function _getAudioCtx() {
+  if (!_audioCtx || _audioCtx.state === 'closed') {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // Resume if suspended (required after page visibility change on mobile)
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+function synthesizeBell(volume = 0.5) {
+  try {
+    const ctx  = _getAudioCtx();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(432, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(216, ctx.currentTime + 2.5);
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 3);
+  } catch(e) { console.warn('Bell error:', e); }
+}
+
+// Unlock AudioContext on first user interaction (required on iOS/Chrome)
+function _unlockAudio() {
+  try { _getAudioCtx(); } catch(e) {}
+}
+document.addEventListener('touchstart', _unlockAudio, { once: true, passive: true });
+document.addEventListener('click',      _unlockAudio, { once: true });
+
+// ── Completion ──
+function onTimerComplete() {
+  // Guard: prevent double-fire
+  clearInterval(State.timer.interval);
+  State.timer.interval = null;
+  clearInterval(State.stepTimer.interval);
+  State.stepTimer.interval = null;
+  State.timer.running      = false;
+  State.stepTimer.running  = false;
+  State.stepTimer.activeId = null;
+
+  synthesizeBell(0.6);
+
+  const steps   = State.timerSteps || [];
+  const done    = steps.filter(s => s.status === 'done').length;
+  const skipped = steps.filter(s => s.status === 'skipped').length;
+  const pending = steps.filter(s => s.status === 'pending').length;
+
+  document.getElementById('stat-done').textContent    = done;
+  document.getElementById('stat-skipped').textContent = skipped;
+  document.getElementById('stat-pending').textContent  = pending;
+
+  const mins = Math.round(State.timer.total / 60);
+  document.getElementById('completion-duration-label').textContent =
+    `${mins} minute session completed`;
+
+  // Mark entry — guard against race with abandon
+  if (State.currentEntry) {
+    State.currentEntry.completedAt = new Date().toISOString();
+    State.currentEntry.updatedAt   = new Date().toISOString();
+    saveEntries();
+    SB.enqueue(State.currentEntry);
+  }
+
+  const mainTimeEl = document.getElementById('main-time-display');
+  if (mainTimeEl) { mainTimeEl.classList.add('paused'); mainTimeEl.textContent = '00:00:00'; }
+  document.getElementById('completion-overlay').classList.add('show');
+}
+
+function reflectAndReturn() {
+  document.getElementById('completion-overlay').classList.remove('show');
+  clearInterval(State.timer.interval);
+  clearInterval(State.stepTimer.interval);
+  State.timer.interval      = null;
+  State.stepTimer.interval  = null;
+  State.timer.running       = false;
+  State.stepTimer.running   = false;
+  State.stepTimer.activeId  = null;
+  State.stepTimer.remaining = 0;
+  State.stepTimer.total     = 0;
+  State.timerSteps          = [];
+  document.getElementById('step-time-small').textContent = '';
+  updateRingMain(0, 1);
+  updateRingStep(0, 1);
+  document.querySelector('.ring-svg')?.classList.remove('paused');
+  // Pre-fill reflection
+  const _rText = State.currentEntry ? State.currentEntry.text : '';
+  entryTA.value = _rText ? `Reflection on: "${_rText.length > 60 ? _rText.slice(0,60) + '…' : _rText}"\n\n` : '';
+  entryTA.style.height = 'auto';
+  entryTA.style.height = entryTA.scrollHeight + 'px';
+  entryTA.dispatchEvent(new Event('input', { bubbles: true }));
+  // Reset type button visual state
+  document.getElementById('btn-thought').className = 'type-btn';
+  document.getElementById('btn-intention').className = 'type-btn';
+  typeToggle.classList.add('visible');
+  captureBtn.classList.remove('visible');
+  State.selectedType = null;
+  State.currentEntry = null;
+  navigate('journal');
+  renderHistory();
+}
+
+
+// Persist step status changes to localStorage + cloud
+function _syncStepStatus() {
+  if (!State.currentEntry || !State.timerSteps) return;
+  State.currentEntry.microsteps = State.timerSteps.map(s => ({
+    id: s.id, text: s.text,
+    duration: Math.round(s.duration / 60),
+    status: s.status,
+  }));
+  State.currentEntry.updatedAt = new Date().toISOString();
+  saveEntries();
+  SB.enqueue(State.currentEntry);
+}
+
+// ── Abandon ──
+function showAbandon() {
+  document.getElementById('abandon-confirm').classList.add('show');
+}
+function hideAbandon() {
+  document.getElementById('abandon-confirm').classList.remove('show');
+}
+function confirmAbandon() {
+  clearInterval(State.timer.interval);
+  clearInterval(State.stepTimer.interval);
+  State.timer.running       = false;
+  State.timer.interval      = null;
+  State.stepTimer.running   = false;
+  State.stepTimer.interval  = null;
+  State.stepTimer.activeId  = null;
+  State.stepTimer.remaining = 0;
+  State.stepTimer.total     = 0;
+  State.timerSteps          = [];
+  State.currentEntry        = null;
+  document.getElementById('abandon-confirm').classList.remove('show');
+  document.getElementById('step-time-small').textContent = '';
+  updateRingMain(0, 1);
+  updateRingStep(0, 1);
+  document.querySelector('.ring-svg')?.classList.remove('paused');
+  resetJournalForm();
+  navigate('journal');
+  renderHistory();
+}
+
+// ── Abandon also on overlay ──
+function showAbandonOverlay() {
+  showAbandon();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SUPABASE CONFIG — PASTE YOUR CREDENTIALS HERE
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://qwtnjkaubketgwwovqxj.supabase.co';  // ← replace
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3dG5qa2F1YmtldGd3d292cXhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDgwODEsImV4cCI6MjA4OTgyNDA4MX0.G6LasxK7AcV8tUx7eDmbJeOD-FclJMUDpOSW3_P_iL8';                   // ← replace
+
+// ═══════════════════════════════════════════════════════
+//  SUPABASE AUTH + SYNC MODULE
+// ═══════════════════════════════════════════════════════
+const SB = {
+  url:          SUPABASE_URL,
+  key:          SUPABASE_KEY,
+  accessToken:  null,   // JWT from Supabase Auth
+  refreshToken: null,
+  user:         null,   // { id, email }
+  queue:        [],
+  syncing:      false,
+  ok:           false,
+
+  // ── Persist / Load credentials ──
+  loadCfg() {
+    // Hardcoded — no localStorage lookup needed
+    // URL and key are already set as constants above
+  },
+  saveCfg() {
+    // No-op — config is hardcoded, nothing to persist
+  },
+
+  // ── Persist / Load session ──
+  loadSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem('zj_sb_session') || 'null');
+      if (s && s.accessToken && s.user) {
+        this.accessToken  = s.accessToken;
+        this.refreshToken = s.refreshToken;
+        this.user         = s.user;
+        this.ok           = !!(this.url && this.key);
+        return true;
+      }
+    } catch(e) {}
+    return false;
+  },
+  saveSession() {
+    localStorage.setItem('zj_sb_session', JSON.stringify({
+      accessToken:  this.accessToken,
+      refreshToken: this.refreshToken,
+      user:         this.user
+    }));
+  },
+  clearSession() {
+    this.accessToken = null; this.refreshToken = null; this.user = null; this.ok = false;
+    localStorage.removeItem('zj_sb_session');
+  },
+
+  // ── Offline queue ──
+  loadQueue()  { try { this.queue = JSON.parse(localStorage.getItem('zj_sbq') || '[]'); } catch(e) {} },
+  saveQueue()  { localStorage.setItem('zj_sbq', JSON.stringify(this.queue)); },
+
+  // ── Headers — use JWT when signed in, anon key otherwise ──
+  hdrs(extra) {
+    const auth = this.accessToken ? `Bearer ${this.accessToken}` : `Bearer ${this.key}`;
+    return Object.assign({
+      'Content-Type':  'application/json',
+      'apikey':        this.key,
+      'Authorization': auth,
+      'Prefer':        'resolution=merge-duplicates,return=minimal'
+    }, extra);
+  },
+  readHdrs() {
+    const auth = this.accessToken ? `Bearer ${this.accessToken}` : `Bearer ${this.key}`;
+    return { 'apikey': this.key, 'Authorization': auth };
+  },
+
+  ep(q = '') { return `${this.url}/rest/v1/zen_entries${q}`; },
+  authEp(path) { return `${this.url}/auth/v1${path}`; },
+
+  // ── SIGN UP ──
+  async signUp(email, password) {
+    const res = await fetch(this.authEp('/signup'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': this.key },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Sign up failed');
+    // Supabase may require email confirmation — check for session
+    if (data.access_token) {
+      this._setSession(data);
+      return { confirmed: true };
+    }
+    return { confirmed: false }; // email confirmation required
+  },
+
+  // ── SIGN IN ──
+  async signIn(email, password) {
+    const res = await fetch(this.authEp('/token?grant_type=password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': this.key },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Sign in failed');
+    this._setSession(data);
+  },
+
+  // ── SIGN OUT ──
+  async signOut() {
+    try {
+      await fetch(this.authEp('/logout'), {
+        method: 'POST',
+        headers: { 'apikey': this.key, 'Authorization': `Bearer ${this.accessToken}` }
+      });
+    } catch(e) {}
+    this.clearSession();
+  },
+
+  // ── REFRESH SESSION ──
+  async refreshSession() {
+    if (!this.refreshToken) return false;
+    try {
+      const res = await fetch(this.authEp('/token?grant_type=refresh_token'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': this.key },
+        body: JSON.stringify({ refresh_token: this.refreshToken })
+      });
+      if (!res.ok) { this.clearSession(); return false; }
+      const data = await res.json();
+      this._setSession(data);
+      return true;
+    } catch(e) { return false; }
+  },
+
+  // ── PASSWORD RESET ──
+  async resetPassword(email) {
+    const res = await fetch(this.authEp('/recover'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': this.key },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.error_description || d.msg || 'Reset failed');
+    }
+  },
+
+  _setSession(data) {
+    this.accessToken  = data.access_token;
+    this.refreshToken = data.refresh_token;
+    this.user         = { id: data.user?.id, email: data.user?.email };
+    this.ok           = true;
+    this.saveSession();
+  },
+
+  // ── ENQUEUE + FLUSH ──
+  enqueue(entry) {
+    this.queue = this.queue.filter(q => q.id !== entry.id);
+    const data = { ...entry };
+    delete data._synced;
+    this.queue.push({ id: entry.id, data, ts: Date.now() });
+    registerBgSync();
+    this.saveQueue();
+    updateSyncUI();
+    this.flush();
+  },
+
+  async flush(_isRetry = false) {
+    if (!this.ok || !this.user || this.syncing || !this.queue.length || !navigator.onLine) return;
+    this.syncing = true;
+    updateSyncUI('syncing');
+    const batch = [...this.queue];
+    try {
+      const rows = batch.map(q => ({
+        id:         q.id,
+        user_id:    this.user.id,
+        data:       q.data,
+        updated_at: new Date().toISOString()
+      }));
+      const res = await fetch(this.ep(), {
+        method:  'POST',
+        headers: this.hdrs(),
+        body:    JSON.stringify(rows)
+      });
+      if (res.status === 401) {
+        // Token expired — try refresh exactly once; never recurse twice
+        if (!_isRetry) {
+          const refreshed = await this.refreshSession();
+          if (refreshed) { this.syncing = false; this.flush(true); return; }
+        }
+        throw new Error('Session expired. Please sign in again.');
+      }
+      if (!res.ok) throw new Error(await res.text());
+      const ids = new Set(batch.map(q => q.id));
+      this.queue = this.queue.filter(q => !ids.has(q.id));
+      this.saveQueue();
+      State.entries.forEach(e => { if (ids.has(e.id)) e._synced = true; });
+      saveEntries();
+      renderHistory();
+      this.syncing = false;
+      updateSyncUI('ok');
+    } catch(err) {
+      this.syncing = false;
+      updateSyncUI('error');
+      console.warn('ZenJournal sync error:', err.message);
+    }
+  },
+
+  // ── PULL (read from cloud) ──
+  async pull() {
+    if (!this.ok || !this.user || !navigator.onLine) return;
+    try {
+      // Filter by auth.uid() — the real Supabase user UUID
+      const res = await fetch(
+        this.ep(`?user_id=eq.${encodeURIComponent(this.user.id)}&order=updated_at.desc&limit=90`),
+        { headers: this.readHdrs() }
+      );
+      if (res.status === 401) { await this.refreshSession(); return; }
+      if (!res.ok) return;
+      const rows = await res.json();
+      rows.forEach(row => {
+        const remote = row.data;
+        if (!remote || !remote.id) return;
+        const idx = State.entries.findIndex(e => e.id === remote.id);
+        if (idx === -1) {
+          State.entries.push({ ...remote, _synced: true });
+        } else {
+          const lt = new Date(State.entries[idx].updatedAt || State.entries[idx].createdAt || 0).getTime();
+          const rt = new Date(row.updated_at || 0).getTime();
+          if (rt > lt) State.entries[idx] = { ...remote, _synced: true };
+        }
+      });
+      State.entries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      saveEntries();
+      renderHistory();
+      updateSyncUI('ok');
+    } catch(e) { updateSyncUI('error'); }
+  },
+};
+
+// ═══════════════════════════════════════════════════════
+//  SYNC UI
+// ═══════════════════════════════════════════════════════
+let _lastSyncState = '';
+function updateSyncUI(state) {
+  if (state) _lastSyncState = state;
+  const el = document.getElementById('sync-status');
+  const lb = document.getElementById('sync-label');
+  const qb = document.getElementById('queue-badge');
+  if (el) el.className = '';
+  if (!SB.ok || !SB.user) {
+    if (lb) lb.textContent = 'sign in';
+  } else if (SB.syncing || _lastSyncState === 'syncing') {
+    if (el) el.classList.add('syncing'); if (lb) lb.textContent = 'syncing…';
+  } else if (_lastSyncState === 'error') {
+    if (el) el.classList.add('error'); if (lb) lb.textContent = 'sync error';
+  } else if (_lastSyncState === 'ok' || SB.queue.length === 0) {
+    if (el) el.classList.add('ok'); if (lb) lb.textContent = 'synced';
+  } else {
+    if (lb) lb.textContent = 'connected';
+  }
+  if (qb) {
+    if (SB.queue.length) { qb.style.display = 'inline'; qb.textContent = SB.queue.length; }
+    else                 { qb.style.display = 'none'; }
+  }
+  _mirrorSyncToTabBar(state !== undefined ? state : _lastSyncState);
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTH SCREEN LOGIC
+// ═══════════════════════════════════════════════════════
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+}
+
+function hideAuthScreen() {
+  const el = document.getElementById('auth-screen');
+  el.classList.add('hidden');
+}
+
+function saveAuthCfg() {
+  // No-op — config is hardcoded in SUPABASE_URL / SUPABASE_KEY constants
+}
+
+function switchAuthTab(tab) {
+  ['signin','signup','reset'].forEach(t => {
+    document.getElementById('tab-' + t)?.classList.toggle('active', t === tab);
+    document.getElementById('form-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  // tab-reset has no button — the forEach above already set signin/signup correctly
+}
+
+function setAuthMsg(form, msg, type) {
+  const el = document.getElementById(form + '-msg');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'auth-msg ' + (type || 'info');
+}
+
+function setBtnLoading(btnId, loading, label) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? '…' : label;
+}
+
+async function doSignIn() {
+  const email    = document.getElementById('si-email').value.trim();
+  const password = document.getElementById('si-password').value;
+  if (!email || !password) { setAuthMsg('si', 'Email and password required', 'error'); return; }
+  setBtnLoading('si-btn', true, 'Sign in');
+  setAuthMsg('si', '', '');
+  try {
+    await SB.signIn(email, password);
+    onAuthSuccess();
+  } catch(err) {
+    setAuthMsg('si', err.message, 'error');
+  } finally {
+    setBtnLoading('si-btn', false, 'Sign in');
+  }
+}
+
+async function doSignUp() {
+  const email    = document.getElementById('su-email').value.trim();
+  const password = document.getElementById('su-password').value;
+  const pass2    = document.getElementById('su-password2').value;
+  if (!email || !password)  { setAuthMsg('su', 'Email and password required', 'error'); return; }
+  if (password !== pass2)   { setAuthMsg('su', 'Passwords do not match', 'error'); return; }
+  if (password.length < 6)  { setAuthMsg('su', 'Password must be at least 6 characters', 'error'); return; }
+  setBtnLoading('su-btn', true, 'Create account');
+  setAuthMsg('su', '', '');
+  try {
+    const result = await SB.signUp(email, password);
+    if (result.confirmed) {
+      onAuthSuccess();
+    } else {
+      setAuthMsg('su', 'Account created — check your email to confirm, then sign in', 'success');
+      setTimeout(() => switchAuthTab('signin'), 3000);
+    }
+  } catch(err) {
+    setAuthMsg('su', err.message, 'error');
+  } finally {
+    setBtnLoading('su-btn', false, 'Create account');
+  }
+}
+
+async function doResetPassword() {
+  const email = document.getElementById('rs-email').value.trim();
+  if (!email) { setAuthMsg('rs', 'Email required', 'error'); return; }
+  setBtnLoading('rs-btn', true, 'Send reset link');
+  try {
+    await SB.resetPassword(email);
+    setAuthMsg('rs', 'Reset link sent — check your inbox', 'success');
+  } catch(err) {
+    setAuthMsg('rs', err.message, 'error');
+  } finally {
+    setBtnLoading('rs-btn', false, 'Send reset link');
+  }
+}
+
+function onAuthSuccess() {
+  hideAuthScreen();
+  updateSyncUI();
+  SB.pull().then(() => SB.flush());
+}
+
+// ── Enter key support on auth inputs ──
+['si-email','si-password'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter') doSignIn(); });
+});
+['su-email','su-password','su-password2'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter') doSignUp(); });
+});
+document.getElementById('rs-email')?.addEventListener('keydown', e => { if(e.key==='Enter') doResetPassword(); });
+
+// ═══════════════════════════════════════════════════════
+//  SETTINGS PANEL (sync pill → when signed in)
+// ═══════════════════════════════════════════════════════
+function openSbPanel() {
+  if (!SB.user) {
+    _setTabInactive();   // clear tab highlight before handing off to auth screen
+    showAuthScreen();
+    return;
+  }
+  document.getElementById('cfg-user-email').textContent = SB.user.email || SB.user.id;
+  document.getElementById('cfg-panel').classList.add('show');
+}
+
+function closeCfgPanel() { document.getElementById('cfg-panel').classList.remove('show'); _setTabInactive(); }
+
+function saveCfgPanel() {
+  closeCfgPanel();
+}
+
+async function doSignOut() {
+  await SB.signOut();
+  closeCfgPanel();
+  _lastSyncState = '';
+  updateSyncUI();
+  showAuthScreen();
+}
+
+// ═══════════════════════════════════════════════════════
+
+// =======================================================
+//  IMPORT / EXPORT MODULE
+// =======================================================
+
+// -- Panel open/close --
+function openIoPanel()  { document.getElementById('io-panel').classList.add('show'); setIoStatus('',''); }
+function closeIoPanel() { document.getElementById('io-panel').classList.remove('show'); _setTabInactive(); }
+function setIoStatus(msg, type) {
+  const el = document.getElementById('io-status');
+  el.textContent = msg;
+  el.className = 'io-status ' + (type || 'info');
+}
+
+// -- Drag & drop helpers --
+function ioDragOver(e)  { e.preventDefault(); document.getElementById('io-drop-zone').classList.add('drag-over'); }
+function ioDragLeave(e) {
+  // Only remove highlight when the cursor genuinely leaves the drop zone boundary,
+  // not when it moves to a child element inside the zone (which triggers a spurious leave).
+  const zone = document.getElementById('io-drop-zone');
+  if (zone && zone.contains(e.relatedTarget)) return;
+  zone.classList.remove('drag-over');
+}
+function ioDrop(e) {
+  e.preventDefault();
+  document.getElementById('io-drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processImportFile(file);
+}
+function ioFileSelected(e) {
+  const file = e.target.files[0];
+  if (file) processImportFile(file);
+  e.target.value = '';
+}
+
+// -- Download helper --
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function dateTag() { return new Date().toISOString().slice(0,10); }
+
+// -------------------------------------------------------
+//  EXPORT JSON
+// -------------------------------------------------------
+function exportJSON() {
+  if (!State.entries.length) { setIoStatus('No entries to export', 'error'); return; }
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    count: State.entries.length,
+    entries: State.entries.map(e => { const c = {...e}; delete c._synced; return c; })
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, 'zen-journal-' + dateTag() + '.json');
+  setIoStatus('Exported ' + State.entries.length + ' entries as JSON', 'ok');
+}
+
+// -------------------------------------------------------
+//  EXPORT CSV
+// -------------------------------------------------------
+function exportCSV() {
+  if (!State.entries.length) { setIoStatus('No entries to export', 'error'); return; }
+  const headers = ['id','type','text','createdAt','updatedAt','totalDuration','completedAt','stepCount','steps'];
+  const escCSV = val => {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r'))
+      return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  const rows = State.entries.map(e => [
+    escCSV(e.id), escCSV(e.type), escCSV(e.text),
+    escCSV(e.createdAt), escCSV(e.updatedAt || ''),
+    escCSV(e.totalDuration || 7200), escCSV(e.completedAt || ''),
+    escCSV((e.microsteps || []).length),
+    escCSV(JSON.stringify(e.microsteps || []))
+  ].join(','));
+  const csv = [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, 'zen-journal-' + dateTag() + '.csv');
+  setIoStatus('Exported ' + State.entries.length + ' entries as CSV', 'ok');
+}
+
+// -------------------------------------------------------
+//  EXPORT PDF  (uses jsPDF loaded lazily from CDN)
+// -------------------------------------------------------
+function exportPDF() {
+  if (!State.entries.length) { setIoStatus('No entries to export', 'error'); return; }
+  setIoStatus('Generating PDF...', 'info');
+  if (window.jspdf) { renderPDF(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  s.onload  = renderPDF;
+  s.onerror = () => setIoStatus('PDF library failed to load — check connection', 'error');
+  document.head.appendChild(s);
+}
+
+function renderPDF() {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const PW = 210, PH = 297, ML = 20, MR = 20, MT = 22, TW = 210 - 40;
+
+    const C = {
+      bg:[10,10,8], text:[232,228,217], muted:[107,104,96],
+      thought:[139,115,85], intention:[74,124,111], done:[74,107,122], border:[42,42,37]
+    };
+
+    let y = MT;
+    const fillPage = () => { doc.setFillColor(...C.bg); doc.rect(0,0,PW,PH,'F'); };
+    const needPage = (h=8) => {
+      if (y + h > PH - 16) { doc.addPage(); fillPage(); y = MT; return true; }
+      return false;
+    };
+    const sc = col => doc.setTextColor(...col);
+
+    // Cover
+    fillPage();
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); sc(C.muted);
+    doc.text('ZEN JOURNAL', ML, 55, { charSpace: 3 });
+    doc.setFontSize(26); sc(C.text);
+    doc.text('Journal Export', ML, 68);
+    doc.setFontSize(8); sc(C.muted);
+    doc.text(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}), ML, 78);
+    doc.text(State.entries.length + ' entries', ML, 85);
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.25);
+    doc.line(ML, 92, PW-MR, 92);
+
+    const thoughts   = State.entries.filter(e=>e.type==='thought').length;
+    const intentions = State.entries.filter(e=>e.type==='intention').length;
+    const completed  = State.entries.filter(e=>e.completedAt).length;
+    [[thoughts,'THOUGHTS',C.thought,0],[intentions,'INTENTIONS',C.intention,55],[completed,'COMPLETED',C.done,110]].forEach(([n,lbl,col,ox])=>{
+      doc.setFontSize(7); sc(col); doc.text(lbl,ML+ox,104,{charSpace:1.2});
+      doc.setFontSize(18); sc(C.text); doc.text(String(n),ML+ox,113);
+    });
+
+    // Entry pages
+    const sorted = [...State.entries].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+    sorted.forEach((entry, ei) => {
+      doc.addPage(); fillPage(); y = MT;
+
+      // Header row
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); sc(C.muted);
+      doc.text(String(ei+1).padStart(3,'0'), ML, y);
+      sc(entry.type==='thought' ? C.thought : C.intention);
+      doc.text(entry.type.toUpperCase(), ML+14, y, {charSpace:1.5});
+      sc(C.muted);
+      const ds = new Date(entry.createdAt).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+      doc.text(ds, PW-MR, y, {align:'right'});
+      y += 3;
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
+      doc.line(ML, y, PW-MR, y);
+      y += 8;
+
+      // Body text
+      doc.setFontSize(12); doc.setFont('helvetica','normal'); sc(C.text);
+      doc.splitTextToSize(entry.text, TW).forEach(ln => { needPage(7); doc.text(ln, ML, y); y += 7; });
+      y += 4;
+
+      // Microsteps
+      if (entry.microsteps && entry.microsteps.length) {
+        needPage(10);
+        doc.setFontSize(7); doc.setFont('helvetica','normal'); sc(C.muted);
+        doc.text('MICROSTEPS', ML, y, {charSpace:1.5});
+        y += 2; doc.line(ML, y, ML+55, y); y += 5;
+
+        entry.microsteps.forEach(step => {
+          needPage(6);
+          const sym = step.status==='done' ? '[x]' : step.status==='skipped' ? '[/]' : '[ ]';
+          const scol = step.status==='done' ? C.done : step.status==='skipped' ? C.muted : C.text;
+          doc.setFontSize(8); sc(scol);
+          doc.text(sym, ML, y);
+          sc(step.status==='done' ? C.muted : C.text);
+          doc.setFont('helvetica', step.status==='done' ? 'normal' : 'normal');
+          const stepLines = doc.splitTextToSize(step.text || '(untitled)', TW-14);
+          doc.text(stepLines[0], ML+10, y);
+          sc(C.muted); doc.setFontSize(7);
+          doc.text((step.duration||0)+' min', PW-MR, y, {align:'right'});
+          y += 5.5;
+          stepLines.slice(1).forEach(l => { needPage(5); sc(C.muted); doc.setFontSize(8); doc.text(l, ML+10, y); y += 5; });
+        });
+        y += 3;
+      }
+
+      // Footer meta
+      if (entry.type==='intention') {
+        needPage(7);
+        doc.setFontSize(7); sc(C.muted);
+        doc.text('Duration: '+Math.round((entry.totalDuration||7200)/60)+' min', ML, y);
+        if (entry.completedAt) { sc(C.done); doc.text('Completed: '+new Date(entry.completedAt).toLocaleString(), ML+50, y); }
+        y += 5;
+      }
+
+      // Page footer
+      doc.setDrawColor(...C.border); doc.line(ML, PH-12, PW-MR, PH-12);
+      doc.setFontSize(7); sc(C.muted);
+      doc.text('Zen Journal', ML, PH-7);
+      doc.text(String(ei+2), PW-MR, PH-7, {align:'right'});
+    });
+
+    doc.save('zen-journal-' + dateTag() + '.pdf');
+    setIoStatus('PDF exported — ' + State.entries.length + ' entries', 'ok');
+  } catch(err) {
+    console.error(err);
+    setIoStatus('PDF error: ' + err.message, 'error');
+  }
+}
+
+// -------------------------------------------------------
+//  IMPORT JSON
+// -------------------------------------------------------
+function importFromJSON(text) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch(e) { setIoStatus('Invalid JSON file', 'error'); return; }
+  const incoming = Array.isArray(parsed) ? parsed : (parsed.entries || null);
+  if (!incoming) { setIoStatus('JSON must contain an "entries" array', 'error'); return; }
+  const VALID_TYPES = new Set(['thought', 'intention']);
+  const valid = incoming.filter(e => e && e.id && e.type && VALID_TYPES.has(e.type) && e.text && e.createdAt);
+  if (!valid.length) { setIoStatus('No valid entries found in JSON', 'error'); return; }
+  let added = 0, updated = 0;
+  valid.forEach(remote => {
+    const entry = { ...remote, updatedAt: remote.updatedAt||remote.createdAt, microsteps: remote.microsteps||[], _synced: false };
+    const idx = State.entries.findIndex(e => e.id === remote.id);
+    if (idx === -1) { State.entries.push(entry); added++; SB.enqueue(entry); }
+    else {
+      const lt = new Date(State.entries[idx].updatedAt||State.entries[idx].createdAt||0).getTime();
+      const rt = new Date(entry.updatedAt).getTime();
+      if (rt >= lt) { State.entries[idx] = entry; updated++; SB.enqueue(entry); }
+    }
+  });
+  State.entries.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  saveEntries(); renderHistory();
+  setIoStatus('Imported: ' + added + ' new, ' + updated + ' updated', 'ok');
+}
+
+// -------------------------------------------------------
+//  IMPORT CSV
+// -------------------------------------------------------
+function importFromCSV(text) {
+  text = text.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) { setIoStatus('CSV appears empty', 'error'); return; }
+  const headers = parseCSVRow(lines[0]);
+  const hi = col => headers.indexOf(col);
+  const iId=hi('id'), iType=hi('type'), iText=hi('text'), iCat=hi('createdAt');
+  const iUpd=hi('updatedAt'), iDur=hi('totalDuration'), iComp=hi('completedAt'), iSteps=hi('steps');
+  if (iId===-1||iType===-1||iText===-1) { setIoStatus('CSV missing required columns: id, type, text','error'); return; }
+  const VALID_IMPORT_TYPES = new Set(['thought', 'intention']);
+  let added=0, updated=0, skipped=0;
+  for (let i=1; i<lines.length; i++) {
+    const cols = parseCSVRow(lines[i]);
+    const id=cols[iId]||'', type=cols[iType]||'', text=cols[iText]||'';
+    if (!id||!type||!text||!VALID_IMPORT_TYPES.has(type)) { skipped++; continue; }
+    let microsteps=[];
+    if (iSteps!==-1&&cols[iSteps]) try { microsteps=JSON.parse(cols[iSteps])||[]; } catch(e){}
+    const entry = {
+      id, type, text,
+      createdAt:     iCat!==-1&&cols[iCat]  ? cols[iCat]  : new Date().toISOString(),
+      updatedAt:     iUpd!==-1&&cols[iUpd]  ? cols[iUpd]  : new Date().toISOString(),
+      totalDuration: iDur!==-1&&cols[iDur]  ? parseInt(cols[iDur])||7200 : 7200,
+      completedAt:   iComp!==-1&&cols[iComp]? cols[iComp]||null : null,
+      microsteps, _synced: false
+    };
+    const existIdx = State.entries.findIndex(e=>e.id===id);
+    if (existIdx===-1) { State.entries.push(entry); added++; SB.enqueue(entry); }
+    else {
+      const lt=new Date(State.entries[existIdx].updatedAt||State.entries[existIdx].createdAt||0).getTime();
+      const rt=new Date(entry.updatedAt).getTime();
+      if (rt>=lt) { State.entries[existIdx]=entry; updated++; SB.enqueue(entry); }
+    }
+  }
+  State.entries.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  saveEntries(); renderHistory();
+  let msg='Imported: '+added+' new, '+updated+' updated';
+  if (skipped) msg+=', '+skipped+' skipped';
+  setIoStatus(msg,'ok');
+}
+
+function parseCSVRow(row) {
+  const cols=[]; let cur='', inQ=false;
+  for (let i=0; i<row.length; i++) {
+    const ch=row[i];
+    if (ch==='"'&&!inQ){inQ=true;continue;}
+    if (ch==='"'&&inQ){if(row[i+1]==='"'){cur+='"';i++;}else{inQ=false;}continue;}
+    if (ch===','&&!inQ){cols.push(cur);cur='';continue;}
+    cur+=ch;
+  }
+  cols.push(cur); return cols;
+}
+
+function processImportFile(file) {
+  const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+  if (file.size > MAX_BYTES) {
+    setIoStatus('File too large (max 5 MB). Please export a smaller set of entries.', 'error');
+    return;
+  }
+  setIoStatus('Reading file...','info');
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result;
+    if(ext==='json') importFromJSON(text);
+    else if(ext==='csv') importFromCSV(text);
+    else setIoStatus('Unsupported format. Use .json or .csv','error');
+  };
+  reader.onerror=()=>setIoStatus('Failed to read file','error');
+  reader.readAsText(file);
+}
+
+//  ONLINE / OFFLINE + PERIODIC SYNC
+// ═══════════════════════════════════════════════════════
+window.addEventListener('online',  () => { _lastSyncState = ''; SB.flush(); });
+window.addEventListener('offline', () => updateSyncUI());
+setInterval(() => { if (SB.ok && SB.user && navigator.onLine) SB.flush(); }, 60000);
+
+// ── Visibility change — correct timer drift after tab hidden / phone locked ──
+let _hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    // Record wall-clock time when tab hides so we can account for elapsed time on return
+    _hiddenAt = Date.now();
+  } else {
+    // Tab became visible again
+    if (State.timer.running && _hiddenAt > 0) {
+      const hiddenElapsed = Math.round((Date.now() - _hiddenAt) / 1000);
+      // Subtract the hidden elapsed time from remaining (clamped to 0)
+      State.timer.remaining = Math.max(0, State.timer.remaining - hiddenElapsed);
+      // Also advance the active step timer if one was running
+      if (State.stepTimer.activeId && State.stepTimer.running) {
+        State.stepTimer.remaining = Math.max(0, State.stepTimer.remaining - hiddenElapsed);
+        const activeStep = (State.timerSteps || []).find(s => s.id === State.stepTimer.activeId);
+        if (activeStep) activeStep.remaining = State.stepTimer.remaining;
+        updateRingStep(State.stepTimer.remaining, State.stepTimer.total);
+        const stSmall = document.getElementById('step-time-small');
+        if (stSmall) stSmall.textContent = formatTimeMS(State.stepTimer.remaining);
+        // Check if step timer finished while hidden
+        if (State.stepTimer.remaining <= 0) {
+          clearInterval(State.stepTimer.interval);
+          State.stepTimer.interval = null;
+          State.stepTimer.running  = false;
+          synthesizeBell(0.3);
+          doneStep(State.stepTimer.activeId);
+        }
+      }
+      // Update main display and ring immediately
+      const td = document.getElementById('main-time-display');
+      if (td) td.textContent = formatTime(State.timer.remaining);
+      updateRingMain(State.timer.remaining, State.timer.total);
+      // Check if session completed while hidden
+      if (State.timer.remaining <= 0) {
+        clearInterval(State.timer.interval);
+        State.timer.interval = null;
+        State.timer.running  = false;
+        onTimerComplete();
+      } else {
+        // Reset the wall-clock anchor so the next tick is accurate
+        _timerLastTick = Date.now();
+      }
+    } else if (State.timer.running) {
+      _timerLastTick = Date.now();
+    }
+    _hiddenAt = 0;
+    // Re-resume AudioContext if it was suspended by the browser
+    if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════
+//  VOICE INPUT MODULE
+//  Web Speech API — works in Chrome, Edge, Safari 14.5+
+//  Graceful degradation for unsupported browsers
+// ═══════════════════════════════════════════════════════
+const Voice = (() => {
+
+  // ── Internal state ──────────────────────────────────
+  let _SR         = null;   // SpeechRecognition constructor
+  let _rec        = null;   // current instance (recreated each session)
+  let _supported  = false;
+  let _listening  = false;
+  let _targetEl   = null;
+  let _btnEl      = null;
+  let _btnId      = null;   // id of _btnEl (safe to re-query after DOM updates)
+  let _stepId     = null;
+  let _lang       = localStorage.getItem('zj_voice_lang') || 'en-US';
+  let _final      = '';
+  let _ending     = false;  // guard against double-cleanup
+
+  // ── Init ────────────────────────────────────────────
+  function init() {
+    _SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!_SR) {
+      const btn = document.getElementById('voice-main-btn');
+      if (btn) { btn.classList.add('unsupported'); btn.title = 'Voice input not supported in this browser'; }
+      return;
+    }
+    _supported = true;
+    const sel = document.getElementById('voice-lang-select');
+    if (sel) sel.value = _lang;
+  }
+
+  // ── Build a fresh instance each session ─────────────
+  // Reusing one SpeechRecognition object across calls causes InvalidStateError
+  // in Chrome/Edge. Creating a new instance every time is the safe approach.
+  function _buildRec() {
+    const rec = new _SR();
+    rec.continuous      = false;  // single-utterance; avoids hanging sessions
+    rec.interimResults  = true;
+    rec.lang            = _lang;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => {
+      _listening = true;
+      _ending    = false;
+      _final     = '';
+      // Re-query button by id — DOM may have re-rendered since _start was called
+      const btn = _btnId ? document.getElementById(_btnId) : _btnEl;
+      if (btn) { _btnEl = btn; btn.classList.add('listening'); }
+      _setStatus('listening…');
+      _setInterim('');
+    };
+
+    rec.onresult = (e) => {
+      let interim = '', finalChunk = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalChunk += t;
+        else interim += t;
+      }
+      if (interim) _setInterim(interim);
+      if (finalChunk) {
+        _final += finalChunk;
+        // Re-query target in case DOM changed
+        const el = _targetEl || (_stepId
+          ? document.getElementById('step-input-' + _stepId)
+          : document.getElementById('entry-text'));
+        if (el) {
+          const cur = el.value;
+          const sep = (cur && !cur.endsWith(' ') && !cur.endsWith('\n')) ? ' ' : '';
+          el.value = cur + sep + finalChunk.trim();
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          _targetEl = el;
+        }
+        _setInterim('');
+      }
+    };
+
+    rec.onerror = (e) => {
+      // 'aborted' fires when we call stop() intentionally — not a real error
+      if (e.error === 'aborted') return;
+      const msgs = {
+        'no-speech':           'No speech detected — try again',
+        'audio-capture':       'Microphone unavailable',
+        'not-allowed':         'Microphone permission denied',
+        'network':             'Network error — try again',
+        'service-not-allowed': 'Speech service not allowed',
+      };
+      _setStatus(msgs[e.error] || ('Voice error: ' + e.error));
+      _ending = true;
+      _cleanup(false);
+    };
+
+    rec.onend = () => {
+      if (_ending) return;  // already handled by onerror or stop()
+      _cleanup(!!_final.trim());
+    };
+
+    return rec;
+  }
+
+  // ── Start / Stop ────────────────────────────────────
+  function _start(targetEl, btnEl, stepId = null) {
+    if (!_supported || _listening) return;
+
+    _targetEl = targetEl;
+    _btnEl    = btnEl;
+    _btnId    = btnEl ? btnEl.id : null;
+    _stepId   = stepId;
+    _final    = '';
+    _ending   = false;
+
+    _rec = _buildRec();  // fresh instance every time
+
+    try {
+      _rec.start();
+      if (!stepId) {
+        const lr = document.getElementById('voice-lang-row');
+        if (lr) lr.classList.add('show');
+      }
+    } catch (err) {
+      console.warn('[Voice] start error:', err);
+      _cleanup(false);
+    }
+  }
+
+  function stop() {
+    if (!_rec || !_listening) return;
+    _ending = true;   // suppress onend cleanup since we handle it here
+    try { _rec.stop(); } catch(e) {}
+    _cleanup(!!_final.trim());  // show "✓ captured" if text was already committed
+  }
+
+  function _cleanup(success) {
+    _listening = false;
+    _ending    = false;
+
+    // Remove listening class — re-query by id to survive DOM re-renders
+    const btn = _btnId ? document.getElementById(_btnId) : _btnEl;
+    if (btn) btn.classList.remove('listening');
+    // Sweep any orphaned .listening buttons from stale re-renders
+    document.querySelectorAll('.voice-btn.listening, .step-voice-btn.listening')
+      .forEach(b => b.classList.remove('listening'));
+
+    _setInterim('');
+    if (success) {
+      _setStatus('\u2713 captured');
+      setTimeout(() => _setStatus(''), 1800);
+    } else {
+      setTimeout(() => _setStatus(''), 600);
+    }
+
+    const lr = document.getElementById('voice-lang-row');
+    if (lr) lr.classList.remove('show');
+
+    _targetEl = null;
+    _btnEl    = null;
+    _btnId    = null;
+    _stepId   = null;
+    _rec      = null;   // allow GC; next session gets a fresh instance
+  }
+
+  // ── UI helpers ──────────────────────────────────────
+  function _setStatus(msg) {
+    const el = document.getElementById('voice-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('show', !!msg);
+  }
+  function _setInterim(msg) {
+    const el = document.getElementById('voice-interim');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('show', !!msg);
+  }
+
+  // ── Public API ──────────────────────────────────────
+
+  function toggleMain() {
+    if (!_supported) return;
+    if (_listening && _stepId === null) { stop(); return; }
+    if (_listening) stop();
+    const ta  = document.getElementById('entry-text');
+    const btn = document.getElementById('voice-main-btn');
+    if (ta && btn) _start(ta, btn, null);
+  }
+
+  function toggleStep(stepId) {
+    if (!_supported) return;
+    if (_listening && _stepId === stepId) { stop(); return; }
+    if (_listening) stop();
+    const inp = document.getElementById('step-input-' + stepId);
+    const btn = document.getElementById('step-voice-btn-' + stepId);
+    if (inp && btn) _start(inp, btn, stepId);
+  }
+
+  function setLang(lang) {
+    _lang = lang;
+    localStorage.setItem('zj_voice_lang', lang);
+    // Applied on next _buildRec(); no cached instance to update
+  }
+
+  function stopAll() {
+    if (_listening) stop();
+  }
+
+  function isSupported() { return _supported; }
+
+  return { init, toggleMain, toggleStep, setLang, stopAll, isSupported };
+})();
+
+
+// ═══════════════════════════════════════════════════════
+//  BOTTOM TAB BAR
+// ═══════════════════════════════════════════════════════
+function tabOpenData() {
+  // Mark tab active briefly, open panel
+  _setTabActive('tab-data');
+  openIoPanel();
+}
+
+function tabOpenSync() {
+  _setTabActive('tab-sync');
+  openSbPanel();
+}
+
+function _setTabActive(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+// Call this from panel close functions to clear the active tab highlight
+function _setTabInactive() {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+}
+
+// Mirror sync state to bottom tab bar (called from updateSyncUI, no override needed)
+function _mirrorSyncToTabBar(state) {
+  const tabSync = document.getElementById('tab-sync-status');
+  const tabQB   = document.getElementById('tab-queue-badge');
+  if (!tabSync) return;
+
+  tabSync.className = '';
+  if (!SB.ok || !SB.user) {
+    // Not signed in — neutral, no indicator
+  } else if (SB.syncing || state === 'syncing') {
+    tabSync.classList.add('syncing');
+  } else if (state === 'error') {
+    tabSync.classList.add('error');
+  } else if (state === 'ok' || SB.queue.length === 0) {
+    tabSync.classList.add('ok');
+  }
+
+  if (tabQB) {
+    if (SB.queue && SB.queue.length > 0) {
+      tabQB.style.display = 'inline';
+      tabQB.textContent   = SB.queue.length;
+    } else {
+      tabQB.style.display = 'none';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+loadEntries();
+SB.loadQueue();
+Voice.init();
+
+const hasSession = SB.loadSession();
+updateSyncUI();
+renderHistory();
+
+if (hasSession) {
+  // Restore session — go straight to app, sync in background
+  hideAuthScreen();
+  SB.pull().then(() => SB.flush());
+} else if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_URL.includes('your-project') || SUPABASE_URL.includes('placeholder') || SUPABASE_KEY.includes('your-anon')) {
+  // No Supabase configured — run in local-only mode
+  hideAuthScreen();
+} else {
+  // No session — show sign in screen
+  showAuthScreen();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SERVICE WORKER + PWA
+// ═══════════════════════════════════════════════════════
+
+let _swReg        = null;
+let _swWaiting    = null;
+let _deferredPrompt = null;  // beforeinstallprompt event
+
+// ── Register service worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(reg => {
+        _swReg = reg;
+
+        // Check for waiting SW (update available)
+        if (reg.waiting) {
+          _swWaiting = reg.waiting;
+          showSwUpdateToast();
+        }
+
+        // Listen for new SW installing
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          if (!newSW) return;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+              _swWaiting = newSW;
+              showSwUpdateToast();
+            }
+          });
+        });
+
+        // Reload when SW takes control (after update)
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (_swUpdating) window.location.reload();
+        });
+      })
+      .catch(err => console.warn('[PWA] SW registration failed:', err));
+  });
+
+  // Listen for messages from SW (e.g. background sync trigger)
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'SW_SYNC_TRIGGER') {
+      if (SB.ok && SB.user && navigator.onLine) SB.flush();
+    }
+  });
+}
+
+// ── SW update toast ──
+let _swUpdating = false;
+
+function showSwUpdateToast() {
+  document.getElementById('sw-update-toast')?.classList.add('show');
+}
+
+function swApplyUpdate() {
+  if (!_swWaiting) return;
+  _swUpdating = true;
+  _swWaiting.postMessage({ type: 'SKIP_WAITING' });
+  document.getElementById('sw-update-toast')?.classList.remove('show');
+}
+
+// ── PWA install banner ──
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+
+  // Don't show if already dismissed or installed this session
+  if (localStorage.getItem('zj_pwa_dismissed')) return;
+
+  setTimeout(() => {
+    // Re-check inside timeout — user may have dismissed in the 3s window
+    if (localStorage.getItem('zj_pwa_dismissed')) return;
+    document.getElementById('pwa-banner')?.classList.add('show');
+  }, 3000);
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredPrompt = null;
+  document.getElementById('pwa-banner')?.classList.remove('show');
+  localStorage.setItem('zj_pwa_dismissed', '1');
+});
+
+async function pwaBannerInstall() {
+  if (!_deferredPrompt) return;
+  // Set dismissed immediately so banner never reappears regardless of outcome
+  localStorage.setItem('zj_pwa_dismissed', '1');
+  document.getElementById('pwa-banner')?.classList.remove('show');
+  try {
+    _deferredPrompt.prompt();
+    const { outcome } = await _deferredPrompt.userChoice;
+  } catch(e) {
+    console.warn('[PWA] Install prompt failed:', e);
+  }
+  _deferredPrompt = null;
+}
+
+function pwaBannerDismiss() {
+  localStorage.setItem('zj_pwa_dismissed', '1');
+  _deferredPrompt = null;  // prevent re-show if beforeinstallprompt fires again this session
+  const banner = document.getElementById('pwa-banner');
+  if (!banner) return;
+  banner.classList.remove('show');
+}
+
+// ── Background Sync registration ──
+// Called from SB.enqueue so queued entries sync when back online
+async function registerBgSync() {
+  if (!_swReg || !('sync' in _swReg)) return;
+  try {
+    await _swReg.sync.register('zj-sync-entries');
+  } catch (e) {
+    // Background Sync not supported on this browser — silent fallback
+  }
+}
+
+// ── iOS "Add to Home Screen" hint ──
+// iOS doesn't support beforeinstallprompt, show a manual hint
+(function iosInstallHint() {
+  const isIos        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari     = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  if (!isIos || !isSafari || isStandalone) return;
+  if (localStorage.getItem('zj_pwa_dismissed')) return;
+
+  setTimeout(() => {
+    // Re-check — user may have dismissed in the 3.5s window via another path
+    if (localStorage.getItem('zj_pwa_dismissed')) return;
+    const banner = document.getElementById('pwa-banner');
+    if (!banner) return;
+    banner.querySelector('.pwa-sub').textContent = 'Tap Share → Add to Home Screen';
+    banner.querySelector('.pwa-install-btn').style.display = 'none';
+    banner.classList.add('show');
+  }, 3500);
+})();
+
+// ── Handle PWA shortcut URL params (?type=thought / ?type=intention) ──
+(function handleShortcutParams() {
+  const params = new URLSearchParams(window.location.search);
+  const type   = params.get('type');
+  if (type === 'thought' || type === 'intention') {
+    // Pre-select the type so user can just speak/type and capture immediately
+    const authHidden = document.getElementById('auth-screen')?.classList.contains('hidden');
+    if (authHidden) {
+      // Already authenticated — pre-select type on journal screen
+      selectType(type);
+      document.getElementById('entry-text')?.focus();
+    }
+    // Clean URL without reload
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════
+//  TEMPLATES MODULE  (merged into single script block)
+// ═══════════════════════════════════════════════════════
+
+const TPL = {
+  activeTpl: 't01',
+  selectedType: null,
+
+  // Map each template ID to its display name (for journal entry title)
+  names: {
+    t01: 'Morning Open Protocol',
+    t02: 'Night Close Protocol',
+    t03: 'Aanapanasati Session Log',
+    t04: '90-Day Vision Statement',
+    t05: 'Scene Breakdown Analysis',
+    t06: 'Identity Architecture',
+    t07: 'Rejection Protocol',
+    t08: 'Weekly Review Protocol',
+    t09: 'Craft Session Log',
+    t10: 'Meditation Insight Journal',
+    t11: 'Breakthrough Log',
+    t12: 'Monthly Phase Verdict',
+  }
+};
+
+function tabOpenTemplates() {
+  _setTabActive('tab-templates');
+  const p = document.getElementById('templates-panel');
+  if (p) {
+    p.classList.add('show');
+    // Always re-apply the active template state on open so sidebar + form are in sync
+    showTpl(TPL.activeTpl || 't01');
+  }
+}
+
+function closeTemplatesPanel() {
+  const p = document.getElementById('templates-panel');
+  if (p) { p.classList.remove('show'); }
+  _setTabInactive();
+}
+
+function showTpl(id) {
+  // Sidebar highlight
+  document.querySelectorAll('#tpl-list .tpl-list-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tpl === id);
+  });
+  // Show correct form
+  document.querySelectorAll('.tpl-form').forEach(f => f.classList.remove('active'));
+  const form = document.getElementById('tpl-' + id);
+  if (form) {
+    form.classList.add('active');
+    // Scroll the form-wrap back to top on template switch
+    const wrap = form.closest('.tpl-form-wrap');
+    if (wrap) wrap.scrollTop = 0;
+  }
+  TPL.activeTpl = id;
+  // Reset type buttons when switching templates
+  tplSelectType(TPL.selectedType);
+}
+
+function tplScore(btn, group) {
+  const row = btn.closest('.tpl-score-row');
+  if (!row) return;
+  row.querySelectorAll('.tpl-score-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function tplPill(pill) {
+  pill.classList.toggle('active');
+}
+
+function tplSelectType(type) {
+  TPL.selectedType = type;
+  const bt = document.getElementById('tpl-btn-thought');
+  const bi = document.getElementById('tpl-btn-intention');
+  if (bt) bt.className = 'tpl-type-btn' + (type === 'thought'   ? ' sel-thought'   : '');
+  if (bi) bi.className = 'tpl-type-btn' + (type === 'intention' ? ' sel-intention' : '');
+  const capBtn = document.getElementById('tpl-capture-btn');
+  if (capBtn) capBtn.disabled = !type;
+}
+
+function tplFlash(msg) {
+  const el = document.getElementById('tpl-flash');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// Collect all filled fields from the active form into a readable text block
+function tplCollectText() {
+  const formEl = document.getElementById('tpl-' + TPL.activeTpl);
+  if (!formEl) return '';
+
+  const title = TPL.names[TPL.activeTpl] || '';
+  const date  = new Date().toLocaleDateString('en-US', {weekday:'short', year:'numeric', month:'short', day:'numeric'});
+  const lines = [`${title} — ${date}`, ''];
+
+  formEl.querySelectorAll('.tpl-field').forEach(field => {
+    const labelEl = field.querySelector('.tpl-field-label');
+    const label   = labelEl ? labelEl.textContent.trim() : '';
+    if (!label) return;
+
+    const textarea = field.querySelector('.tpl-field-textarea');
+    const input    = field.querySelector('.tpl-field-input');
+    const scoreBtn = field.querySelector('.tpl-score-btn.active');
+    const activePills = [...field.querySelectorAll('.tpl-pill.active, .tpl-rasa-pill.active')]
+                          .map(p => p.textContent.trim()).join(', ');
+
+    const val = textarea ? textarea.value.trim() : (input ? input.value.trim() : '');
+
+    // Only include fields that have data
+    if (!val && !scoreBtn && !activePills) return;
+
+    lines.push(`[ ${label.toUpperCase()} ]`);
+    if (val)        lines.push(val);
+    if (scoreBtn)   lines.push(`Score: ${scoreBtn.textContent.trim()}`);
+    if (activePills) lines.push(`Selected: ${activePills}`);
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+}
+
+function tplCapture() {
+  if (!TPL.selectedType) return;
+  const text = tplCollectText();
+  if (!text || text.length < 10) {
+    tplFlash('Fill in at least one field first');
+    return;
+  }
+
+  const entry = {
+    id:            uid(),
+    type:          TPL.selectedType,
+    text:          text,
+    createdAt:     new Date().toISOString(),
+    updatedAt:     new Date().toISOString(),
+    microsteps:    [],
+    totalDuration: 7200,
+    completedAt:   null,
+    _synced:       false,
+  };
+
+  State.entries.push(entry);
+  saveEntries();
+  SB.enqueue(entry);
+  renderHistory();
+
+  if (TPL.selectedType === 'intention') {
+    State.currentEntry = entry;
+    setupIntentionScreen(entry);
+    closeTemplatesPanel();
+    navigate('setup');
+  } else {
+    tplFlash('◦ Saved to Journal');
+    // Clear the active form
+    tplClearActiveForm();
+    tplSelectType(null);
+  }
+}
+
+function tplClearActiveForm() {
+  const formEl = document.getElementById('tpl-' + TPL.activeTpl);
+  if (!formEl) return;
+  formEl.querySelectorAll('textarea, input[type="text"]').forEach(el => el.value = '');
+  formEl.querySelectorAll('.tpl-score-btn.active').forEach(b => b.classList.remove('active'));
+  formEl.querySelectorAll('.tpl-pill.active, .tpl-rasa-pill.active').forEach(p => p.classList.remove('active'));
+}
+
+</script>
+
+<!-- ══ DOJO OS TEMPLATES PANEL ══ -->
+<div id="templates-panel">
+
+  <div class="tpl-header">
+    <div class="tpl-header-left">
+      <div class="tpl-title">DOJO OS</div>
+      <div class="tpl-subtitle">Protocol Templates · 12 Forms</div>
+    </div>
+    <button class="tpl-close-btn" onclick="closeTemplatesPanel()">close</button>
+  </div>
+
+  <div class="tpl-body">
+
+    <!-- LEFT LIST -->
+    <div class="tpl-list" id="tpl-list">
+      <div class="tpl-list-section">Daily</div>
+      <div role="button" tabindex="0" class="tpl-list-item active" onclick="showTpl('t01')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t01\')" data-tpl="t01"><span class="tpl-list-icon">🌅</span><span class="tpl-list-label">Morning Open</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t02')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t02\')" data-tpl="t02"><span class="tpl-list-icon">🌑</span><span class="tpl-list-label">Night Close</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t03')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t03\')" data-tpl="t03"><span class="tpl-list-icon">🧘</span><span class="tpl-list-label">Aanapanasati</span></div>
+      <div class="tpl-list-section">Foundation</div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t04')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t04\')" data-tpl="t04"><span class="tpl-list-icon">🔭</span><span class="tpl-list-label">90-Day Vision</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t06')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t06\')" data-tpl="t06"><span class="tpl-list-icon">⚔️</span><span class="tpl-list-label">Identity Arch.</span></div>
+      <div class="tpl-list-section">Craft</div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t05')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t05\')" data-tpl="t05"><span class="tpl-list-icon">🎭</span><span class="tpl-list-label">Scene Breakdown</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t09')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t09\')" data-tpl="t09"><span class="tpl-list-icon">🎬</span><span class="tpl-list-label">Craft Session</span></div>
+      <div class="tpl-list-section">Resilience</div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t07')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t07\')" data-tpl="t07"><span class="tpl-list-icon">🔥</span><span class="tpl-list-label">Rejection Protocol</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t11')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t11\')" data-tpl="t11"><span class="tpl-list-icon">⚡</span><span class="tpl-list-label">Breakthrough Log</span></div>
+      <div class="tpl-list-section">Review</div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t08')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t08\')" data-tpl="t08"><span class="tpl-list-icon">📊</span><span class="tpl-list-label">Weekly Review</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t10')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t10\')" data-tpl="t10"><span class="tpl-list-icon">💡</span><span class="tpl-list-label">Meditation Insight</span></div>
+      <div role="button" tabindex="0" class="tpl-list-item" onclick="showTpl('t12')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')showTpl(\'t12\')" data-tpl="t12"><span class="tpl-list-icon">📅</span><span class="tpl-list-label">Monthly Verdict</span></div>
+    </div>
+
+    <!-- RIGHT FORMS -->
+    <div class="tpl-right-pane">
+    <div class="tpl-form-wrap">
+
+      <!-- T01: MORNING OPEN -->
+      <div class="tpl-form active" id="tpl-t01">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🌅</div>
+          <div class="tpl-form-num">Protocol 01 · Daily · 03:00–04:00</div>
+          <div class="tpl-form-title">Morning Open Protocol</div>
+          <div class="tpl-form-desc">Activate identity · Declare intention · Anticipate resistance · Score readiness</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity Declaration</label>
+          <span class="tpl-field-hint">Who you are — stated as fact, no qualifiers</span>
+          <textarea class="tpl-field-textarea" placeholder="I am a Hollywood Martial Arts Icon. I am…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Dominant Intention</label>
+          <span class="tpl-field-hint">The one thing today must produce</span>
+          <textarea class="tpl-field-textarea" placeholder="Today's non-negotiable outcome is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Anticipated Obstacle</label>
+          <input class="tpl-field-input" type="text" placeholder="The most likely resistance today is…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Pre-Committed Response</label>
+          <input class="tpl-field-input" type="text" placeholder="If that happens, I will immediately…">
+        </div>
+        <div class="tpl-section-label">CNS Readiness</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">CNS Score (1 = crashed · 10 = primed)</label>
+          <div class="tpl-score-row" data-sg="cns01">
+            <button class="tpl-score-btn" onclick="tplScore(this,'cns01')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'cns01')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">CNS Read</label>
+          <input class="tpl-field-input" type="text" placeholder="Sleep quality, HRV note, body on wake…">
+        </div>
+        <div class="tpl-section-label">Satisfaction Baseline</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Baseline Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="sat01">
+            <button class="tpl-score-btn" onclick="tplScore(this,'sat01')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'sat01')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Morning Gratitude</label>
+          <input class="tpl-field-input" type="text" placeholder="I am genuinely grateful for…">
+        </div>
+      </div>
+
+      <!-- T02: NIGHT CLOSE -->
+      <div class="tpl-form" id="tpl-t02">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🌑</div>
+          <div class="tpl-form-num">Protocol 02 · Daily · 20:30–21:30</div>
+          <div class="tpl-form-title">Night Close Protocol</div>
+          <div class="tpl-form-desc">Account for the day · Extract the lesson · Set tomorrow's ground</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Evening Affirmation</label>
+          <input class="tpl-field-input" type="text" placeholder="Today I proved I am…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical Win</label>
+          <input class="tpl-field-input" type="text" placeholder="Sparring rounds, technique drilled, benchmark beat…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Win</label>
+          <input class="tpl-field-input" type="text" placeholder="Scene worked, accent sharpened, Rasa accessed…">
+        </div>
+        <div class="tpl-section-label">Accountability</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Shortfall</label>
+          <input class="tpl-field-input" type="text" placeholder="I did not complete… / I avoided…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Root Cause</label>
+          <span class="tpl-field-hint">Honest. Not excuses.</span>
+          <textarea class="tpl-field-textarea" placeholder="The actual reason was…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">System Fix</label>
+          <input class="tpl-field-input" type="text" placeholder="Tomorrow I will restructure… / Remove… / Add friction to…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Tomorrow's Non-Negotiable</label>
+          <input class="tpl-field-input" type="text" placeholder="No matter what happens, tomorrow I will…">
+        </div>
+        <div class="tpl-section-label">Night Score</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Day Execution Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="night02">
+            <button class="tpl-score-btn" onclick="tplScore(this,'night02')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'night02')">10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- T03: AANAPANASATI -->
+      <div class="tpl-form" id="tpl-t03">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🧘</div>
+          <div class="tpl-form-num">Protocol 03 · Daily Meditation</div>
+          <div class="tpl-form-title">Aanapanasati Session Log</div>
+          <div class="tpl-form-desc">Breath observation → body scan → Metta radiation → insight extraction</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Duration</label>
+          <input class="tpl-field-input" type="text" placeholder="45 min">
+        </div>
+        <div class="tpl-section-label">Breath Observation</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Quality of Observation (1–10)</label>
+          <div class="tpl-score-row" data-sg="breath03">
+            <button class="tpl-score-btn" onclick="tplScore(this,'breath03')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'breath03')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Mind Character</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Restless</button><button class="tpl-pill" onclick="tplPill(this)">Dull</button><button class="tpl-pill" onclick="tplPill(this)">Sharp</button><button class="tpl-pill" onclick="tplPill(this)">Equanimous</button><button class="tpl-pill" onclick="tplPill(this)">Anxious</button><button class="tpl-pill" onclick="tplPill(this)">Absorbed</button><button class="tpl-pill" onclick="tplPill(this)">Scattered</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Vipassana Body Scan</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Body Sensations</label>
+          <span class="tpl-field-hint">Crown · Throat · Chest · Solar plexus · Abdomen · Limbs</span>
+          <textarea class="tpl-field-textarea" placeholder="What arose, where, and the nature of each sensation…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scan Quality</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Gross sensation</button><button class="tpl-pill" onclick="tplPill(this)">Mixed</button><button class="tpl-pill" onclick="tplPill(this)">Subtle flow</button><button class="tpl-pill" onclick="tplPill(this)">Free flow</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Metta Bhavana</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Metta Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="metta03">
+            <button class="tpl-score-btn" onclick="tplScore(this,'metta03')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'metta03')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Insight</label>
+          <textarea class="tpl-field-textarea" placeholder="What the silence revealed…"></textarea>
+        </div>
+      </div>
+
+      <!-- T04: 90-DAY VISION -->
+      <div class="tpl-form" id="tpl-t04">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🔭</div>
+          <div class="tpl-form-num">Protocol 04 · Foundation</div>
+          <div class="tpl-form-title">90-Day Vision Statement</div>
+          <div class="tpl-form-desc">The complete picture of Day 90 — stated as present fact</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Full Vision</label>
+          <span class="tpl-field-hint">Written in present tense. Paint it fully — environment, emotion, proof.</span>
+          <textarea class="tpl-field-textarea tall" placeholder="It is [date]. I am sitting in… I have just completed… The evidence of my transformation is…"></textarea>
+        </div>
+        <div class="tpl-section-label">Pillar Breakdowns</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical</label>
+          <textarea class="tpl-field-textarea" placeholder="Body, combat capacity, conditioning benchmarks by Day 90…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft</label>
+          <textarea class="tpl-field-textarea" placeholder="Acting skill, screen presence, Rasa range, technical ability…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Career</label>
+          <textarea class="tpl-field-textarea" placeholder="Industry position, credits, relationships, momentum…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Financial</label>
+          <textarea class="tpl-field-textarea" placeholder="Income, savings, investments, eliminated costs…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity</label>
+          <textarea class="tpl-field-textarea" placeholder="Who you will have become — beliefs, standard, proof of transformation…"></textarea>
+        </div>
+      </div>
+
+      <!-- T05: SCENE BREAKDOWN -->
+      <div class="tpl-form" id="tpl-t05">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🎭</div>
+          <div class="tpl-form-num">Protocol 05 · Craft Tool</div>
+          <div class="tpl-form-title">Scene Breakdown Analysis</div>
+          <div class="tpl-form-desc">From text to body to camera to score</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene / Script</label>
+          <input class="tpl-field-input" type="text" placeholder="Project · Scene · Pages · Character…">
+        </div>
+        <div class="tpl-section-label">Actor's Analysis</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Super-Objective</label>
+          <input class="tpl-field-input" type="text" placeholder="The character's deepest want is to…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene Objective</label>
+          <span class="tpl-field-hint">Active verb + target</span>
+          <input class="tpl-field-input" type="text" placeholder="In this scene I want to [verb] [other character] so that…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Obstacle</label>
+          <input class="tpl-field-input" type="text" placeholder="External: … / Internal: …">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Subtext</label>
+          <textarea class="tpl-field-textarea" placeholder="What the character cannot say directly… The emotional truth beneath the words…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Character Arc</label>
+          <input class="tpl-field-input" type="text" placeholder="ENTER state → CHANGE EVENT → EXIT state">
+        </div>
+        <div class="tpl-section-label">Rasa</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Primary Rasa</label>
+          <div class="tpl-rasa-row">
+            <button class="tpl-rasa-pill" onclick="tplPill(this)">Shringara · Love</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Hasya · Joy</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Karuna · Sorrow</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Raudra · Fury</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Vira · Heroism</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bhayanaka · Terror</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bibhatsa · Disgust</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Adbhuta · Wonder</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Shanta · Peace</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Performance</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical Score</label>
+          <textarea class="tpl-field-textarea" placeholder="Body, posture, breath, space use, key physical actions…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Camera Notes</label>
+          <input class="tpl-field-input" type="text" placeholder="Shot type · Eye-line · Scale of truth · Pull-back moments…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Score (Post-Work, 1–10)</label>
+          <div class="tpl-score-row" data-sg="craft05">
+            <button class="tpl-score-btn" onclick="tplScore(this,'craft05')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'craft05')">10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- T06: IDENTITY ARCHITECTURE -->
+      <div class="tpl-form" id="tpl-t06">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">⚔️</div>
+          <div class="tpl-form-num">Protocol 06 · Core Document</div>
+          <div class="tpl-form-title">Identity Architecture</div>
+          <div class="tpl-form-desc">Chief Aim · Declarations · Price · Models · Affirmations</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Chief Aim</label>
+          <span class="tpl-field-hint">One sentence. Specific. Dated. Unwavering.</span>
+          <textarea class="tpl-field-textarea" placeholder="By [date], I will be [outcome] having done [actions]…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity Declaration</label>
+          <textarea class="tpl-field-textarea tall" placeholder="I am a Hollywood Martial Arts Icon. I am… / I have… / I operate as… / My standard is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Price Being Paid</label>
+          <span class="tpl-field-hint">Stated without complaint</span>
+          <textarea class="tpl-field-textarea" placeholder="I have chosen to give up… / I am willing to endure… / The cost I accept is…"></textarea>
+        </div>
+        <div class="tpl-section-label">Role Models</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Role Model 1</label>
+          <input class="tpl-field-input" type="text" placeholder="Name · Quality · How I embody it…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Role Model 2</label>
+          <input class="tpl-field-input" type="text" placeholder="Name · Quality · How I embody it…">
+        </div>
+        <div class="tpl-section-label">Five Affirmations</div>
+        <div class="tpl-field"><label class="tpl-field-label">I</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">II</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">III</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">IV</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+        <div class="tpl-field"><label class="tpl-field-label">V</label><input class="tpl-field-input" type="text" placeholder="I am / I have / I create…"></div>
+      </div>
+
+      <!-- T07: REJECTION PROTOCOL -->
+      <div class="tpl-form" id="tpl-t07">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🔥</div>
+          <div class="tpl-form-num">Protocol 07 · Resilience</div>
+          <div class="tpl-form-title">Rejection Protocol</div>
+          <div class="tpl-form-desc">Convert rejection into intelligence. No spiraling. Only data.</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Rejection Type</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Audition</button><button class="tpl-pill" onclick="tplPill(this)">Callback</button><button class="tpl-pill" onclick="tplPill(this)">Submission</button><button class="tpl-pill" onclick="tplPill(this)">Other</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Facts Only</label>
+          <span class="tpl-field-hint">No interpretation. No emotion.</span>
+          <textarea class="tpl-field-textarea" placeholder="On [date], I submitted/auditioned for [role]. The outcome was [exactly what happened]…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Data Interpretation</label>
+          <textarea class="tpl-field-textarea" placeholder="This tells me… / This does NOT tell me… / The industry signal here is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Question Raised</label>
+          <input class="tpl-field-input" type="text" placeholder="This raises the question: how do I improve my…?">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">One Controlled Response</label>
+          <input class="tpl-field-input" type="text" placeholder="In response, I will [one action] by [specific time]…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Identity Reminder</label>
+          <input class="tpl-field-input" type="text" placeholder="This outcome does not change the fact that I am…">
+        </div>
+      </div>
+
+      <!-- T08: WEEKLY REVIEW -->
+      <div class="tpl-form" id="tpl-t08">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">📊</div>
+          <div class="tpl-form-num">Protocol 08 · Weekly · Sunday</div>
+          <div class="tpl-form-title">Weekly Review Protocol</div>
+          <div class="tpl-form-desc">Honest score · Pattern extraction · System evolution · North Star check</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Week Number</label>
+          <input class="tpl-field-input" type="text" placeholder="Week __ · Days __–__ / 90">
+        </div>
+        <div class="tpl-section-label">Pillar Scores</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="w08p">
+            <button class="tpl-score-btn" onclick="tplScore(this,'w08p')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'w08p')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="w08c">
+            <button class="tpl-score-btn" onclick="tplScore(this,'w08c')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'w08c')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Career Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="w08ca">
+            <button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'w08ca')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Review</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Worked</label>
+          <textarea class="tpl-field-textarea" placeholder="Patterns that produced results — protect and scale these…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Was Missed</label>
+          <textarea class="tpl-field-textarea" placeholder="I did not complete… / I avoided… / I underperformed in…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Root Cause</label>
+          <textarea class="tpl-field-textarea" placeholder="The underlying cause of the misses is…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Structural Change</label>
+          <input class="tpl-field-input" type="text" placeholder="Next week I will change [element] to…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">North Star Check</label>
+          <textarea class="tpl-field-textarea" placeholder="At this pace Day 90 will look like… / Next week must produce…"></textarea>
+        </div>
+      </div>
+
+      <!-- T09: CRAFT SESSION -->
+      <div class="tpl-form" id="tpl-t09">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">🎬</div>
+          <div class="tpl-form-num">Protocol 09 · Daily Craft</div>
+          <div class="tpl-form-title">Craft Session Log</div>
+          <div class="tpl-form-desc">Accent · Scene · On-Camera · Rasa · Composite Score</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Duration</label>
+          <input class="tpl-field-input" type="text" placeholder="2h 30m">
+        </div>
+        <div class="tpl-section-label">Accent Work</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Accent Worked</label>
+          <input class="tpl-field-input" type="text" placeholder="Accent · Duration · Focus sounds · Materials used…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Accent Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="acc09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'acc09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'acc09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Scene Work</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene Worked</label>
+          <input class="tpl-field-input" type="text" placeholder="Scene · Method · Partner or solo…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Scene Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="sc09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'sc09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'sc09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">On-Camera</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Camera Work</label>
+          <input class="tpl-field-input" type="text" placeholder="Filmed · Tracking: eye-line / stillness / scale of truth…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Camera Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="cam09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'cam09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'cam09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">Rasa</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Rasa Explored</label>
+          <div class="tpl-rasa-row">
+            <button class="tpl-rasa-pill" onclick="tplPill(this)">Shringara · Love</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Hasya · Joy</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Karuna · Sorrow</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Raudra · Fury</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Vira · Heroism</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bhayanaka · Terror</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Bibhatsa · Disgust</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Adbhuta · Wonder</button><button class="tpl-rasa-pill" onclick="tplPill(this)">Shanta · Peace</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Rasa Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="rasa09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'rasa09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Composite Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="comp09">
+            <button class="tpl-score-btn" onclick="tplScore(this,'comp09')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'comp09')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Notes</label>
+          <textarea class="tpl-field-textarea" placeholder="Key discovery today… / Next session priority… / Question to explore…"></textarea>
+        </div>
+      </div>
+
+      <!-- T10: MEDITATION INSIGHT -->
+      <div class="tpl-form" id="tpl-t10">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">💡</div>
+          <div class="tpl-form-num">Protocol 10 · Contemplative</div>
+          <div class="tpl-form-title">Meditation Insight Journal</div>
+          <div class="tpl-form-desc">Capture what silence reveals before the mind covers it again</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Session Type</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Aanapanasati</button><button class="tpl-pill" onclick="tplPill(this)">Vipassana</button><button class="tpl-pill" onclick="tplPill(this)">Metta</button><button class="tpl-pill" onclick="tplPill(this)">Vedic</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Raw Insight</label>
+          <span class="tpl-field-hint">Write immediately. Unfiltered. Before the analytical mind takes over.</span>
+          <textarea class="tpl-field-textarea tall" placeholder="What arose in the silence… What I saw about myself… What dissolved… What became clear…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Mind Observation</label>
+          <textarea class="tpl-field-textarea" placeholder="The mind was… / It kept returning to… / Its strategy was… / What I noticed about the observer…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Equanimity Quality (1–10)</label>
+          <div class="tpl-score-row" data-sg="eq10">
+            <button class="tpl-score-btn" onclick="tplScore(this,'eq10')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'eq10')">10</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Carry Into the Day</label>
+          <input class="tpl-field-input" type="text" placeholder="From this session I am carrying… / The quality I will embody today is…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Connection to Craft</label>
+          <textarea class="tpl-field-textarea" placeholder="This insight touches my acting because… / The stillness will affect my scene work by…"></textarea>
+        </div>
+      </div>
+
+      <!-- T11: BREAKTHROUGH LOG -->
+      <div class="tpl-form" id="tpl-t11">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">⚡</div>
+          <div class="tpl-form-num">Protocol 11 · Event Log</div>
+          <div class="tpl-form-title">Breakthrough Log</div>
+          <div class="tpl-form-desc">When something cracks open — document it completely before it fades</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Domain</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Physical</button><button class="tpl-pill" onclick="tplPill(this)">Craft</button><button class="tpl-pill" onclick="tplPill(this)">Meditation</button><button class="tpl-pill" onclick="tplPill(this)">Identity</button><button class="tpl-pill" onclick="tplPill(this)">Career</button>
+          </div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Happened</label>
+          <span class="tpl-field-hint">Context, moment, change — fully described</span>
+          <textarea class="tpl-field-textarea tall" placeholder="I was doing… / At the moment… / What shifted was… / Before: … / After: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">How It Happened</label>
+          <textarea class="tpl-field-textarea" placeholder="The conditions were… / What I had been doing before… / The specific trigger was…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Body Sensation</label>
+          <input class="tpl-field-input" type="text" placeholder="In my body it felt like… / Located in… / Quality of the sensation…">
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">How to Replicate</label>
+          <textarea class="tpl-field-textarea" placeholder="To access this again, I should… / Key conditions were… / Prioritize…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What It Unlocks</label>
+          <textarea class="tpl-field-textarea" placeholder="This opens the door to… / It changes my approach to… / It proves I can…"></textarea>
+        </div>
+      </div>
+
+      <!-- T12: MONTHLY PHASE VERDICT -->
+      <div class="tpl-form" id="tpl-t12">
+        <div class="tpl-form-header">
+          <div class="tpl-form-icon">📅</div>
+          <div class="tpl-form-num">Protocol 12 · Phase Close</div>
+          <div class="tpl-form-title">Monthly Phase Verdict</div>
+          <div class="tpl-form-desc">KPI audit · Pattern verdict · System evolution · North Star for next phase</div>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Phase</label>
+          <div class="tpl-pill-row">
+            <button class="tpl-pill" onclick="tplPill(this)">Month 1 · Days 1–30</button><button class="tpl-pill" onclick="tplPill(this)">Month 2 · Days 31–60</button><button class="tpl-pill" onclick="tplPill(this)">Month 3 · Days 61–90</button>
+          </div>
+        </div>
+        <div class="tpl-section-label">KPI Results</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Physical KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Sparring rounds — Target: … Actual: …&#10;Conditioning — Target: … Actual: …&#10;Training sessions — Target: … Actual: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Craft KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Scenes worked — Target: … Actual: …&#10;Craft sessions — Target: … Actual: …&#10;Composite score avg: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Career KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Submissions — Target: … Actual: …&#10;Auditions — Target: … Actual: …&#10;Callbacks: …"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Financial KPIs</label>
+          <textarea class="tpl-field-textarea" placeholder="Income — Target: … Actual: …&#10;Savings — Target: … Actual: …"></textarea>
+        </div>
+        <div class="tpl-section-label">Phase Verdict</div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Worked</label>
+          <textarea class="tpl-field-textarea" placeholder="Patterns that produced results — protect and scale in Phase 2…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">What Failed</label>
+          <textarea class="tpl-field-textarea" placeholder="Honest. Not excuses. What genuinely did not work…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Root Cause</label>
+          <textarea class="tpl-field-textarea" placeholder="The pattern beneath all failures was…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Structural Change</label>
+          <textarea class="tpl-field-textarea" placeholder="In Phase 2, I will restructure [element] to eliminate [failure mode]…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">North Star — Next Phase</label>
+          <textarea class="tpl-field-textarea" placeholder="For Day 90 to be real, Phase 2 must produce… / I am entering Phase 2 as…"></textarea>
+        </div>
+        <div class="tpl-field">
+          <label class="tpl-field-label">Phase Score (1–10)</label>
+          <div class="tpl-score-row" data-sg="ph12">
+            <button class="tpl-score-btn" onclick="tplScore(this,'ph12')">1</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">2</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">3</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">4</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">5</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">6</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">7</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">8</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">9</button><button class="tpl-score-btn" onclick="tplScore(this,'ph12')">10</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STICKY FOOTER OUTSIDE SCROLL AREA, INSIDE RIGHT PANE -->
+      </div><!-- /tpl-form-wrap -->
+
+      <div class="tpl-footer">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="tpl-entry-type-row">
+            <button class="tpl-type-btn" id="tpl-btn-thought"    onclick="tplSelectType('thought')">◦ thought</button>
+            <button class="tpl-type-btn" id="tpl-btn-intention"  onclick="tplSelectType('intention')">◇ intention</button>
+          </div>
+          <span class="tpl-flash" id="tpl-flash"></span>
+        </div>
+        <button class="tpl-capture-btn" id="tpl-capture-btn" onclick="tplCapture()" disabled>Save to Journal</button>
+      </div>
+
+    </div><!-- /tpl-right-pane -->
+  </div><!-- /tpl-body -->
+</div><!-- /templates-panel -->
+
+
+
+<!-- PWA install banner -->
+<div id="pwa-banner">
+  <div class="pwa-icon"><span class="pwa-icon-glyph">Z</span></div>
+  <div class="pwa-text">
+    <div class="pwa-title">Zen Journal</div>
+    <div class="pwa-sub">Add to home screen</div>
+  </div>
+  <button class="pwa-install-btn" onclick="pwaBannerInstall()">Install</button>
+  <button class="pwa-dismiss-btn" onclick="pwaBannerDismiss()" aria-label="Dismiss">&#x2715;</button>
+</div>
+
+<!-- SW update toast -->
+<div id="sw-update-toast">
+  <span class="sw-toast-text">New version available</span>
+  <button class="sw-update-btn" onclick="swApplyUpdate()">Update</button>
+</div>
+
+
+<!-- ══ BOTTOM TAB BAR ══ -->
+<div id="bottom-bar" role="navigation" aria-label="App navigation">
+  <div class="tab-bar-inner">
+
+    <!-- App name — centred feel, left anchor -->
+    <span class="tab-app-name">Zen Journal</span>
+
+    <!-- Right tabs -->
+    <div class="tab-group">
+
+      <!-- Templates tab -->
+      <button class="tab-btn" id="tab-templates"
+        onclick="tabOpenTemplates()" aria-label="DOJO OS Protocol Templates">
+        Templates
+      </button>
+
+      <!-- Data tab (import / export) -->
+      <button class="tab-btn" id="tab-data"
+        onclick="tabOpenData()" aria-label="Import and export data">
+        Data
+      </button>
+
+      <!-- Sync / account tab -->
+      <button class="tab-btn" id="tab-sync"
+        onclick="tabOpenSync()" aria-label="Cloud sync and account">
+        <span id="tab-sync-status">
+          Sync<span id="tab-sync-dot"></span>
+        </span>
+        <span id="tab-queue-badge"></span>
+      </button>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
