@@ -1356,56 +1356,13 @@ body::after {
 /* ── Print ── */
 @media print {
   #auth-screen, #cfg-panel, #io-panel, #completion-overlay, #abandon-confirm,
-  #bottom-bar, #pwa-banner, #sw-update-toast { display: none !important; }
+  #bottom-bar, #sw-update-toast { display: none !important; }
   .brand-actions { display: none; }
   .screen { display: block !important; }
   #screen-journal { display: block !important; }
   #screen-setup, #screen-timer { display: none !important; }
 }
 
-/* ── PWA install prompt ── */
-#pwa-banner {
-  position: fixed; bottom: max(52px, calc(52px + env(safe-area-inset-bottom))); left: 0; right: 0; z-index: 9000;
-  background: var(--bg2); border-top: 1px solid var(--border);
-  padding: 14px max(20px,env(safe-area-inset-right)) max(14px,calc(8px + env(safe-area-inset-bottom))) max(20px,env(safe-area-inset-left));
-  display: flex; align-items: center; gap: 14px;
-  transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
-  pointer-events: none;
-}
-#pwa-banner.show { transform: translateY(0); pointer-events: all; }
-.pwa-icon {
-  width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
-  background: var(--intention); display: flex; align-items: center; justify-content: center;
-}
-.pwa-icon-glyph { font-family: var(--f-script); font-size: 18px; color: var(--bg); line-height: 1; }
-.pwa-text { flex: 1; min-width: 0; }
-.pwa-title { font-family: var(--f-mono); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink); margin-bottom: 2px; }
-.pwa-sub   { font-family: var(--f-body);  font-size: 12px; font-style: italic; color: var(--muted); }
-.pwa-install-btn {
-  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase;
-  background: var(--intention); color: var(--bg); border: none; padding: 8px 16px;
-  cursor: pointer; flex-shrink: 0; transition: opacity 0.2s;
-}
-.pwa-install-btn:hover { opacity: 0.85; }
-.pwa-dismiss-btn {
-  font-family: var(--f-mono); font-size: 20px; color: var(--faint);
-  background: transparent; border: none; cursor: pointer;
-  min-width: 44px; min-height: 44px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: color 0.2s; line-height: 1;
-  -webkit-tap-highlight-color: transparent;
-  pointer-events: auto;
-}
-.pwa-dismiss-btn:hover { color: var(--muted); }
-
-/* When PWA banner is visible, push the tab bar up above it */
-body.pwa-banner-visible #bottom-bar {
-  bottom: 72px; /* approximate banner height */
-  transition: bottom 0.4s cubic-bezier(0.16,1,0.3,1);
-}
-body:not(.pwa-banner-visible) #bottom-bar {
-  transition: bottom 0.4s cubic-bezier(0.16,1,0.3,1);
-}
 
 /* ── SW update toast ── */
 #sw-update-toast {
@@ -3753,7 +3710,6 @@ if (hasSession) {
 let _swReg        = null;
 let _swWaiting    = null;
 let _swUpdating   = false;   // true while waiting for controllerchange after SKIP_WAITING
-let _deferredPrompt = null;  // beforeinstallprompt event
 
 // ── Register service worker ──
 if ('serviceWorker' in navigator) {
@@ -3811,146 +3767,6 @@ function swApplyUpdate() {
   document.getElementById('sw-update-toast')?.classList.remove('show');
 }
 
-// ── PWA install banner ──
-
-// True when running as installed PWA (standalone/fullscreen/minimal-ui)
-function _isInstalledPWA() {
-  return ['standalone','fullscreen','minimal-ui']
-    .some(m => window.matchMedia('(display-mode: ' + m + ')').matches)
-    || window.navigator.standalone === true;  // iOS Safari
-}
-
-// Single source of truth: banner must never show once either key is set
-function _isPwaInstalled() {
-  return _isInstalledPWA()
-    || !!localStorage.getItem('zj_pwa_installed')
-    || !!localStorage.getItem('zj_pwa_dismissed');
-}
-
-function _showPwaBanner() {
-  if (_isPwaInstalled()) return;  // re-check at show time
-  const banner = document.getElementById('pwa-banner');
-  if (!banner) return;
-  banner.style.pointerEvents = '';
-  banner.classList.add('show');
-  document.body.classList.add('pwa-banner-visible');
-}
-
-function _hidePwaBanner(permanent) {
-  const banner = document.getElementById('pwa-banner');
-  if (!banner) return;
-  banner.classList.remove('show');
-  banner.style.pointerEvents = 'none';
-  document.body.classList.remove('pwa-banner-visible');
-  if (permanent) {
-    localStorage.setItem('zj_pwa_dismissed', '1');
-  }
-}
-
-// On startup: use getInstalledRelatedApps() (Chrome Android 85+) to detect
-// if the PWA is already installed even when opened in the browser tab.
-// This is the only reliable way to know when running in browser-mode post-install.
-(function _checkAlreadyInstalled() {
-  if (_isPwaInstalled()) {
-    // Already flagged — ensure banner stays hidden
-    _hidePwaBanner(false);
-    return;
-  }
-  if ('getInstalledRelatedApps' in navigator) {
-    navigator.getInstalledRelatedApps().then(apps => {
-      if (apps && apps.length > 0) {
-        // PWA is installed — mark it and keep banner away permanently
-        localStorage.setItem('zj_pwa_installed', '1');
-        localStorage.setItem('zj_pwa_dismissed', '1');
-        _hidePwaBanner(false);
-        _deferredPrompt = null;
-      }
-    }).catch(() => {/* ignore — best-effort */});
-  }
-})();
-
-// Hide banner whenever display-mode transitions to standalone (install completed)
-;['standalone','fullscreen','minimal-ui'].forEach(m => {
-  window.matchMedia('(display-mode: ' + m + ')').addEventListener('change', e => {
-    if (e.matches) {
-      _deferredPrompt = null;
-      localStorage.setItem('zj_pwa_installed', '1');
-      localStorage.setItem('zj_pwa_dismissed', '1');
-      _hidePwaBanner(false);
-    }
-  });
-});
-
-window.addEventListener('appinstalled', () => {
-  _deferredPrompt = null;
-  localStorage.setItem('zj_pwa_installed', '1');
-  localStorage.setItem('zj_pwa_dismissed', '1');
-  _hidePwaBanner(false);
-});
-
-window.addEventListener('beforeinstallprompt', e => {
-  // ALWAYS call preventDefault first — suppresses Chrome's native mini-infobar.
-  // Must happen before ANY early return or the browser reclaims the event.
-  e.preventDefault();
-
-  // Always store the prompt so it stays captured (prevents native infobar)
-  _deferredPrompt = e;
-
-  // Only show our custom banner if not already installed/dismissed
-  if (_isPwaInstalled()) return;
-
-  setTimeout(() => {
-    if (_isPwaInstalled() || !_deferredPrompt) return;
-    _showPwaBanner();
-  }, 3000);
-});
-
-async function pwaBannerInstall() {
-  if (!_deferredPrompt) return;
-  const prompt = _deferredPrompt;
-  _hidePwaBanner(true);    // hide immediately — don't wait for userChoice
-  try {
-    prompt.prompt();
-    const { outcome } = await prompt.userChoice;
-    if (outcome === 'accepted') {
-      _deferredPrompt = null;
-      localStorage.setItem('zj_pwa_installed', '1');
-      localStorage.setItem('zj_pwa_dismissed', '1');
-    } else {
-      // User dismissed the native prompt — clear our reference but don't re-show banner
-      // Chrome will re-fire beforeinstallprompt later; we'll capture it then
-      _deferredPrompt = null;
-    }
-  } catch(e) {
-    _deferredPrompt = null;
-    console.warn('[PWA] Install prompt failed:', e);
-  }
-}
-
-function pwaBannerDismiss() {
-  _deferredPrompt = null;
-  _hidePwaBanner(true);  // permanent — user explicitly dismissed
-}
-
-// ── iOS "Add to Home Screen" hint ──
-// iOS Safari never fires beforeinstallprompt — show a manual hint on first visit only
-(function iosInstallHint() {
-  const isIos    = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  // Bail immediately if already installed/dismissed (all three checks)
-  if (!isIos || !isSafari || _isPwaInstalled()) return;
-
-  setTimeout(() => {
-    // Re-check inside the timeout — state may have changed
-    if (_isPwaInstalled()) return;
-    const banner = document.getElementById('pwa-banner');
-    if (!banner) return;
-    banner.querySelector('.pwa-sub').textContent = 'Tap Share → Add to Home Screen';
-    const installBtn = banner.querySelector('.pwa-install-btn');
-    if (installBtn) installBtn.style.display = 'none';
-    _showPwaBanner();
-  }, 3000);
-})();
 
 // ── Background Sync registration ──
 // Called from SB.enqueue so queued entries sync when back online
@@ -4788,17 +4604,6 @@ function tplClearActiveForm() {
 </div><!-- /templates-panel -->
 
 
-
-<!-- PWA install banner -->
-<div id="pwa-banner">
-  <div class="pwa-icon"><span class="pwa-icon-glyph">Z</span></div>
-  <div class="pwa-text">
-    <div class="pwa-title">Zen Journal</div>
-    <div class="pwa-sub">Add to home screen</div>
-  </div>
-  <button class="pwa-install-btn" onclick="pwaBannerInstall()">Install</button>
-  <button class="pwa-dismiss-btn" onclick="pwaBannerDismiss()" aria-label="Dismiss">&#x2715;</button>
-</div>
 
 <!-- SW update toast -->
 <div id="sw-update-toast">
