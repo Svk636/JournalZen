@@ -1398,6 +1398,15 @@ body::after {
 }
 .pwa-dismiss-btn:hover { color: var(--muted); }
 
+/* When PWA banner is visible, push the tab bar up above it */
+body.pwa-banner-visible #bottom-bar {
+  bottom: 72px; /* approximate banner height */
+  transition: bottom 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+body:not(.pwa-banner-visible) #bottom-bar {
+  transition: bottom 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
 /* ── SW update toast ── */
 #sw-update-toast {
   position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-80px);
@@ -3805,9 +3814,12 @@ function swApplyUpdate() {
 // ── PWA install banner ──
 
 // True when running as installed PWA (standalone/fullscreen/minimal-ui)
-const _isInstalledPWA = ['standalone','fullscreen','minimal-ui']
-  .some(m => window.matchMedia('(display-mode: ' + m + ')').matches)
-  || window.navigator.standalone === true;  // iOS Safari
+// Evaluated as a function so it reflects current state, not just page-load state
+function _isInstalledPWA() {
+  return ['standalone','fullscreen','minimal-ui']
+    .some(m => window.matchMedia('(display-mode: ' + m + ')').matches)
+    || window.navigator.standalone === true;  // iOS Safari
+}
 
 function _showPwaBanner() {
   // Never show if already installed or permanently dismissed
@@ -3816,6 +3828,7 @@ function _showPwaBanner() {
   if (!banner) return;
   banner.style.pointerEvents = '';  // clear any inline override
   banner.classList.add('show');
+  document.body.classList.add('pwa-banner-visible');
 }
 
 function _hidePwaBanner(permanent) {
@@ -3823,12 +3836,13 @@ function _hidePwaBanner(permanent) {
   if (!banner) return;
   banner.classList.remove('show');
   banner.style.pointerEvents = 'none';
+  document.body.classList.remove('pwa-banner-visible');
   if (permanent) localStorage.setItem('zj_pwa_dismissed', '1');
 }
 
 // Single source of truth: banner must never show once either key is set
 function _isPwaInstalled() {
-  return _isInstalledPWA
+  return _isInstalledPWA()
     || !!localStorage.getItem('zj_pwa_installed')
     || !!localStorage.getItem('zj_pwa_dismissed');
 }
@@ -3851,17 +3865,32 @@ window.addEventListener('beforeinstallprompt', e => {
 window.addEventListener('appinstalled', () => {
   _deferredPrompt = null;
   localStorage.setItem('zj_pwa_installed', '1'); // permanent — never cleared
+  localStorage.setItem('zj_pwa_dismissed', '1');  // belt-and-suspenders
   _hidePwaBanner(true);  // also writes zj_pwa_dismissed
+});
+
+// Hide banner whenever the app transitions to standalone (e.g. after install + reopen)
+;['standalone','fullscreen','minimal-ui'].forEach(m => {
+  window.matchMedia('(display-mode: ' + m + ')').addEventListener('change', e => {
+    if (e.matches) {
+      _deferredPrompt = null;
+      localStorage.setItem('zj_pwa_installed', '1');
+      _hidePwaBanner(true);
+    }
+  });
 });
 
 async function pwaBannerInstall() {
   if (!_deferredPrompt) return;
-  _hidePwaBanner(true);
   const prompt = _deferredPrompt;
   _deferredPrompt = null;  // clear before await so any re-fired event is ignored
+  _hidePwaBanner(true);    // hide immediately — don't wait for userChoice
   try {
     prompt.prompt();
-    await prompt.userChoice;
+    const { outcome } = await prompt.userChoice;
+    if (outcome === 'accepted') {
+      localStorage.setItem('zj_pwa_installed', '1');
+    }
   } catch(e) {
     console.warn('[PWA] Install prompt failed:', e);
   }
@@ -4783,4 +4812,4 @@ function tplClearActiveForm() {
 </div>
 
 </body>
-</html>
+</html>      
